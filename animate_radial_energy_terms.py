@@ -26,12 +26,17 @@ kinetic-energy penalty -- see README for the full explanation and why
 it's a *different* mechanism from the textbook 4*pi*r^2 probability
 peak.
 
-Four panels:
-  1. The radial wavefunction psi(r) (r >= 0; width mode zooms per frame).
+Four panels, all with axis scales fixed for the whole animation (no
+per-frame rescaling) so only the curves/points move, not the frame:
+  1. The radial wavefunction, normalized to psi/max(psi) each frame --
+     its raw amplitude isn't the interesting part and varies by orders
+     of magnitude, so normalizing keeps the y-axis fixed at [0,1] and
+     lets the x-extent alone show the change in spread.
   2. <T> and total energy E = <T> + <V> vs. the swept variable, log-x in
      width mode so the 1/a^2 blow-up and the flat tail are both visible.
-  3. A bar chart comparing <T> and |<V>|, rescaled per frame, annotated
-     with the ratio <T>/|<V>|.
+  3. A bar chart comparing <T> and |<V>|, log-scale y-axis (fixed for
+     the whole run) since the two span orders of magnitude in width
+     mode -- a fixed linear scale would make most frames unreadable.
   4. A 3D "electron cloud" -- points sampled from |psi(r)|^2 in 3D
      (uniform on the sphere at each sampled radius, exact for l=0),
      drawn with low alpha so density reads visually.
@@ -117,11 +122,10 @@ def run_width_mode(args, r):
     title = f"ψ(r;a) = {KIND_FORMULA[args.kind]}, l=0, centered on the nucleus  --  sweeping width a"
     xlabel = "width parameter a"
     extremum_label = "energy minimum (virial: 2⟨T⟩=|⟨V⟩| exactly, no softening needed)"
-    zoom = lambda val: np.clip(6.0 * val, 0.6, 15.0)
     return dict(
         sweep_values=a_values, sweep_bg=sweep_bg, T_bg=T_bg, V_bg=V_bg, E_bg=E_bg, star=a_star,
         frame_state=frame_state, title=title, xlabel=xlabel, extremum_label=extremum_label,
-        log_x=True, r_xlim=zoom, r_autoscale=True, cloud_xlim=zoom,
+        log_x=True, psi_window=15.0, cloud_window=15.0,
     )
 
 
@@ -146,12 +150,10 @@ def run_shell_mode(args, r):
     )
     xlabel = "shell radius r0"
     extremum_label = "energy minimum (off the nucleus)"
-    window = r0_max + 3 * a_fixed
     return dict(
         sweep_values=r0_values, sweep_bg=sweep_bg, T_bg=T_bg, V_bg=V_bg, E_bg=E_bg, star=r0_star,
         frame_state=frame_state, title=title, xlabel=xlabel, extremum_label=extremum_label,
-        log_x=False, r_xlim=lambda val: window, r_autoscale=False,
-        cloud_xlim=lambda val: max(val + 4.0 * a_fixed, 2.0),
+        log_x=False, psi_window=r0_max + 3 * a_fixed, cloud_window=r0_max + 4 * a_fixed,
     )
 
 
@@ -159,10 +161,11 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("mode", choices=["width", "shell"])
     parser.add_argument("--kind", choices=["hydrogen1s", "gaussian"], default="gaussian")
-    parser.add_argument("--fixed-width", type=float, default=0.7,
-                         help="thickness `a` held fixed in shell mode (default 0.7: thin enough "
-                              "for the shell's energy minimum to sit off the nucleus, while still "
-                              "bound, E<0 -- see README)")
+    parser.add_argument("--fixed-width", type=float, default=0.2,
+                         help="thickness `a` held fixed in shell mode (default 0.2: thin enough "
+                              "that the r=0 boundary-clipping penalty dominates and the shell's "
+                              "energy minimum sits clearly off the nucleus -- see README; this "
+                              "narrow a shell is unbound, E>0 throughout, unlike --fixed-width 0.7)")
     parser.add_argument("--cloud-points", type=int, default=3000)
     parser.add_argument("-o", "--output", default=None)
     parser.add_argument("--fps", type=int, default=15)
@@ -191,16 +194,15 @@ def main():
     style_3d_axis(ax_cloud)
     fig.suptitle(title, color=INK_PRIMARY, fontsize=12, y=0.99)
 
-    # --- Panel 1: the radial wavefunction ---
+    # --- Panel 1: the radial wavefunction, normalized to psi/max(psi) so
+    # the y-axis stays fixed at [0,1] regardless of the raw amplitude ---
     ax_psi.set_xlabel("r (Bohr radii)", color=INK_SECONDARY)
-    ax_psi.set_ylabel("ψ(r)", color=INK_SECONDARY)
-    ax_psi.set_title("1. Radial wavefunction", color=INK_PRIMARY, fontsize=11)
+    ax_psi.set_ylabel("ψ(r) / max(ψ)", color=INK_SECONDARY)
+    ax_psi.set_title("1. Radial wavefunction (normalized)", color=INK_PRIMARY, fontsize=11)
+    ax_psi.set_xlim(0, run["psi_window"])
+    ax_psi.set_ylim(0, 1.08)
     (line_psi,) = ax_psi.plot([], [], color=COLOR_T, linewidth=2)
     ax_psi.axvline(0, color=INK_MUTED, linewidth=1, linestyle=":")  # nucleus
-    if not run["r_autoscale"]:
-        tallest = max(frame_state(v)[0].max() for v in (sweep_bg[0], sweep_bg[-1], sweep_bg[len(sweep_bg) // 2]))
-        ax_psi.set_ylim(0, tallest * 1.15)
-        ax_psi.set_xlim(0, run["r_xlim"](0))
 
     # --- Panel 2: <T> and total energy vs. swept variable ---
     ax_energy.set_xlim(max(sweep_bg.min(), 1e-3) if run["log_x"] else sweep_bg.min(), sweep_bg.max())
@@ -223,21 +225,32 @@ def main():
     (marker_T,) = ax_energy.plot([], [], "o", color=COLOR_T, markersize=9,
                                   markeredgecolor=SURFACE, markeredgewidth=1.5)
 
-    # --- Panel 3: bar chart comparing <T> and |<V>|, rescaled per frame ---
+    # --- Panel 3: bar chart comparing <T> and |<V>|, log-scale y-axis
+    # fixed for the whole run -- <T> and |<V>| span orders of magnitude
+    # in width mode, so a fixed linear scale would make most frames
+    # unreadable, and a per-frame-rescaled one would defeat "fixed axes".
+    bar_floor = min(T_bg.min(), np.abs(V_bg).min()) * 0.5
+    bar_ceil = max(T_bg.max(), np.abs(V_bg).max()) * 1.5
     ax_bar.set_xlim(-0.6, 1.6)
     ax_bar.set_xticks([0, 1])
     ax_bar.set_xticklabels(["⟨T⟩", "|⟨V⟩|"], color=INK_SECONDARY, fontsize=10)
-    ax_bar.set_ylabel("energy (Hartree)", color=INK_SECONDARY)
+    ax_bar.set_ylabel("energy (Hartree, log scale)", color=INK_SECONDARY)
+    ax_bar.set_yscale("log")
+    ax_bar.set_ylim(bar_floor, bar_ceil)
     ax_bar.set_title("3. Kinetic vs. potential", color=INK_PRIMARY, fontsize=11)
-    bars = ax_bar.bar([0, 1], [1e-9, 1e-9], width=0.6, color=[COLOR_T, COLOR_V])
+    bars = ax_bar.bar([0, 1], [bar_floor, bar_floor], bottom=bar_floor, width=0.6, color=[COLOR_T, COLOR_V])
     ratio_text = ax_bar.text(0.5, 0.94, "", ha="center", va="top", transform=ax_bar.transAxes,
                               color=INK_PRIMARY, fontsize=11)
 
-    # --- Panel 4: 3D electron cloud (its own dynamic zoom, always) ---
+    # --- Panel 4: 3D electron cloud, cube fixed for the whole run ---
     ax_cloud.set_title("4. Electron cloud (|ψ|² in 3D)", color=INK_PRIMARY, fontsize=11, y=1.0)
     ax_cloud.set_xlabel("x")
     ax_cloud.set_ylabel("y")
     ax_cloud.set_zlabel("z")
+    cloud_half = run["cloud_window"]
+    ax_cloud.set_xlim(-cloud_half, cloud_half)
+    ax_cloud.set_ylim(-cloud_half, cloud_half)
+    ax_cloud.set_zlim(-cloud_half, cloud_half)
     x0, y0, z0 = sample_electron_cloud(r, frame_state(sweep_bg[0])[0], args.cloud_points, rng)
     cloud = ax_cloud.scatter(x0, y0, z0, color=COLOR_T, alpha=0.45, s=8, linewidths=0)
     ax_cloud.scatter([0], [0], [0], color=COLOR_V, s=40, depthshade=False)  # nucleus marker
@@ -254,25 +267,16 @@ def main():
         E = T + Vexp
         ratio = T / abs(Vexp)
 
-        line_psi.set_data(r, psi)
-        if run["r_autoscale"]:
-            half_w = run["r_xlim"](val)
-            ax_psi.set_xlim(0, half_w)
-            ax_psi.set_ylim(0, psi.max() * 1.15)
+        line_psi.set_data(r, psi / psi.max())
 
         marker_E.set_data([val], [E])
         marker_T.set_data([val], [T])
 
-        bars[0].set_height(T)
-        bars[1].set_height(abs(Vexp))
-        ax_bar.set_ylim(0, max(T, abs(Vexp)) * 1.3)
+        bars[0].set_height(T - bar_floor)
+        bars[1].set_height(abs(Vexp) - bar_floor)
 
         xs, ys, zs = sample_electron_cloud(r, psi, args.cloud_points, rng)
         cloud._offsets3d = (xs, ys, zs)
-        cloud_half = run["cloud_xlim"](val)
-        ax_cloud.set_xlim(-cloud_half, cloud_half)
-        ax_cloud.set_ylim(-cloud_half, cloud_half)
-        ax_cloud.set_zlim(-cloud_half, cloud_half)
 
         note = f" ({extremum_label})" if abs(val - star) < near_star_tol else ""
         ratio_text.set_text(f"⟨T⟩/|⟨V⟩| = {ratio:.2f}{note}")
