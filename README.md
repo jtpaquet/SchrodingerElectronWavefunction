@@ -189,27 +189,98 @@ $4\pi r^2\psi(r)^2$ peaking at the Bohr radius (see `shell` mode above):
 that peak requires no rigidity assumption at all, since it's a property of
 the true, unconstrained ground state itself.
 
-### An alternative shell shape, and why the deeper question needs full 3D
+### Two more radial shapes, and why they don't settle it either
 
-A natural next question: is the ball-vs-shell effect an artifact of the
-particular *shape* used (a plain Gaussian, which is not required to vanish
-at $r=0$)? I tested $\psi(r) = r e^{-(r-r_0)^2/2a^2}$ -- a shape with an
-analytic node at the nucleus for any $r_0$, no boundary behavior involved
-at all. It still shows an interior energy minimum, but a different one:
-$r_0^\ast$ converges toward $\approx 1.0$ (not $\approx 0.5$) as $a\to0$.
-That's expected, now that the real mechanism is understood -- this shape is
-still a compact, radially-confined blob near $r_0=0$ and a thin shell for
-$r_0\gg a$, so the same ball-vs-shell transition still happens; only the
-detailed shape (and hence the exact balance point) changes.
+Is the ball-vs-shell effect an artifact of the particular *shape* used (a
+plain Gaussian, which isn't required to vanish at $r=0$)? I tried two
+alternatives, both still purely radial ($l=0$):
 
-That result points at the real limitation, though: *any* purely radial
-($l=0$) family -- shell, node-shell, or otherwise -- can only describe a
-spherically symmetric charge distribution centered on the nucleus. It
-cannot describe "an electron sitting off to one side," because a function
-of $r=\lvert\mathbf r\rvert$ alone is, by construction, the same in every
-direction. A genuinely displaced electron needs a real 3D calculation in
-$(x,y,z)$, which is a natural next step for this project if the goal is
-modeling capture rather than further tinkering with radial shapes.
+- $\psi(r) = r e^{-(r-r_0)^2/2a^2}$ -- an analytic node at the nucleus for
+  any $r_0$, no boundary behavior at all. Still shows an interior minimum,
+  but a different one: $r_0^\ast$ converges toward $\approx1.0$ (not
+  $\approx0.5$) as $a\to0$.
+- A shape you proposed, $\psi(r) = (r/a) e^{-(r-a)^2}$, using a *fixed*
+  (unscaled) Gaussian width and dividing by $a$ to try to keep the
+  normalization comparable across the sweep. Worth flagging directly: the
+  $1/a$ factor turns out to do nothing -- it's a constant multiplying the
+  whole function, and renormalizing ($\int\lvert\psi\rvert^2=1$) divides
+  any such constant back out exactly, so this shape's physics is identical
+  to plain $r e^{-(r-a)^2}$ (I checked -- $\langle T\rangle$ and
+  $\langle V\rangle$ match to 6 decimal places with or without the $/a$).
+  What *does* help is the fixed Gaussian width: $\langle T\rangle$ ranges
+  only $\approx0.55$ to $\approx1.10$ across $a=3\to0.1$ (versus orders of
+  magnitude for the swept-width shell), because the object's physical size
+  never shrinks -- only its position drifts toward the origin as $a\to0$.
+
+Both still show an interior minimum, and both are still compact blobs near
+the nucleus and thin shells far away -- the same ball-vs-shell transition,
+just with different exact balance points. That's the tell: *any* purely
+radial family -- shell, node-shell, fixed-width or not -- can only describe
+a distribution centered *on* the nucleus, spherically symmetric in every
+direction. None of them can describe "an electron actually sitting off to
+one side," because a function of $r=\lvert\mathbf r\rvert$ alone is the
+same in every direction by construction. Tuning the shape only moves where
+the ball-vs-shell trade-off balances; it can't remove the trade-off, because
+the trade-off is inherent to using $r$ as the swept variable at all.
+
+### The real fix: a genuinely displaced 3D wavepacket, `animate_wavepacket_capture.py`
+
+A rigid object translating through ordinary, unbounded 3D space has a
+translation-invariant kinetic energy -- that's a theorem, not something any
+particular shape has to earn. So instead of sweeping a radial coordinate,
+this displaces an isotropic Gaussian to an actual point in 3D space,
+$(0,0,R)$, and both energy terms become closed-form (no grid at all):
+
+$$\langle T\rangle(a) = \frac{3}{4a^2} \qquad\qquad \langle V\rangle(R,a) = -\frac{\mathrm{erf}(R/a)}{R} \ \ (\to -\tfrac{2}{a\sqrt\pi}\text{ as }R\to0)$$
+
+$\langle T\rangle$ here is *exactly* constant -- not approximately, not for
+large $R$ only, but for every $R$, because this is an actual rigid
+translation and the physics guarantees it. That was the condition you were
+looking for to make the energies at different positions genuinely
+comparable, and it turns out the only way to get it exactly is to stop
+representing "position" with $r$ at all.
+
+```
+python animate_wavepacket_capture.py --fixed-width 1.0 -o output/wavepacket_capture_a1.0.gif
+python animate_wavepacket_capture.py --fixed-width 0.3 -o output/wavepacket_capture_a0.3.gif
+```
+
+![wavepacket capture, a=1.0](output/wavepacket_capture_a1.0.gif)
+
+*$a=1.0$ (the true hydrogen ground-state width): $\langle T\rangle=0.75$
+Hartree, exactly flat across the whole sweep (panel 2's blue line is
+perfectly horizontal). $E(R)$ rises monotonically from $-0.378$ at $R=0$ to
+$+0.583$ at $R=6$ -- **no interior minimum**. Panel 4 shows why this is a
+qualitatively different picture from the shell model: the electron cloud
+stays one solid ball at every frame, simply translating -- it never hollows
+out into a shell, because there was never a spherically-symmetric
+constraint tying its density to the nucleus's location in the first place.*
+
+![wavepacket capture, a=0.3](output/wavepacket_capture_a0.3.gif)
+
+*$a=0.3$ (much more localized): $\langle T\rangle=8.33$ Hartree, still
+exactly flat. $E(R)$ is monotonic here too, rising from $+4.57$ at $R=0$.
+Checked across every width from $a=1.5$ down to $a=0.05$: the minimum is
+at $R=0$ in every single case.*
+
+**Conclusion.** With the comparison made honestly -- a real rigid
+translation, not a radial-coordinate sweep dressed up to look like one --
+there is no preferred nonzero separation between a hydrogen electron and
+its proton, for any width tried. That's not a limitation of this model; it's
+the correct physical answer. A single electron falling into a single
+proton's Coulomb well has no barrier and nothing to balance against except
+its own kinetic energy, so it simply falls all the way to $R=0$ and settles
+at whatever width $a$ that kinetic cost allows ($a=1$, from the width
+sweep) -- which is exactly the ordinary 1s orbital. A finite equilibrium
+*separation* is a real thing in nature (a chemical bond, a Van der Waals
+minimum), but it requires a second body or a repulsive term to balance
+against -- two nuclei sharing an electron, electron-electron repulsion,
+Pauli exclusion -- none of which are present for a bare electron and a bare
+proton. The intuition "the electron doesn't want to sit exactly on the
+proton" is correct, but the resolution is the ground state's *width*
+($a_0=1$ Bohr radius of spread), not a nonzero *offset* -- those are
+different geometric ideas, and conflating them is what made the shell
+sweep's answer look surprising in the first place.
 
 ## Requirements
 
