@@ -121,10 +121,9 @@ def run_width_mode(args, r):
 
     title = f"ψ(r;a) = {KIND_FORMULA[args.kind]}, l=0, centered on the nucleus  --  sweeping width a"
     xlabel = "width parameter a"
-    extremum_label = "energy minimum (virial: 2⟨T⟩=|⟨V⟩| exactly, no softening needed)"
     return dict(
         sweep_values=a_values, sweep_bg=sweep_bg, T_bg=T_bg, V_bg=V_bg, E_bg=E_bg, star=a_star,
-        frame_state=frame_state, title=title, xlabel=xlabel, extremum_label=extremum_label,
+        frame_state=frame_state, title=title, xlabel=xlabel,
         log_x=True, psi_window=15.0, cloud_window=15.0,
     )
 
@@ -149,10 +148,9 @@ def run_shell_mode(args, r):
         "  --  sweeping shell radius r0"
     )
     xlabel = "shell radius r0"
-    extremum_label = "energy minimum (off the nucleus)"
     return dict(
         sweep_values=r0_values, sweep_bg=sweep_bg, T_bg=T_bg, V_bg=V_bg, E_bg=E_bg, star=r0_star,
-        frame_state=frame_state, title=title, xlabel=xlabel, extremum_label=extremum_label,
+        frame_state=frame_state, title=title, xlabel=xlabel,
         log_x=False, psi_window=r0_max + 3 * a_fixed, cloud_window=r0_max + 4 * a_fixed,
     )
 
@@ -179,9 +177,7 @@ def main():
     run = (run_width_mode if args.mode == "width" else run_shell_mode)(args, r)
     sweep_values, sweep_bg = run["sweep_values"], run["sweep_bg"]
     T_bg, V_bg, E_bg, star = run["T_bg"], run["V_bg"], run["E_bg"], run["star"]
-    frame_state, title, xlabel, extremum_label = (
-        run["frame_state"], run["title"], run["xlabel"], run["extremum_label"]
-    )
+    frame_state, title, xlabel = run["frame_state"], run["title"], run["xlabel"]
 
     fig = plt.figure(figsize=(13, 10.5))
     fig.patch.set_facecolor(SURFACE)
@@ -259,8 +255,6 @@ def main():
 
     fig.tight_layout(rect=[0, 0.05, 1, 0.96])
 
-    near_star_tol = np.median(np.abs(np.diff(sweep_values))) * 0.75
-
     def update(frame_idx):
         val = sweep_values[frame_idx]
         psi, T, Vexp = frame_state(val)
@@ -278,8 +272,7 @@ def main():
         xs, ys, zs = sample_electron_cloud(r, psi, args.cloud_points, rng)
         cloud._offsets3d = (xs, ys, zs)
 
-        note = f" ({extremum_label})" if abs(val - star) < near_star_tol else ""
-        ratio_text.set_text(f"⟨T⟩/|⟨V⟩| = {ratio:.2f}{note}")
+        ratio_text.set_text(f"⟨T⟩/|⟨V⟩| = {ratio:.2f}")
         info_text.set_text(
             f"{xlabel.split(' ')[0]} = {val:6.3f}    ⟨T⟩ = {T:7.3f}    ⟨V⟩ = {Vexp:7.3f}    E = {E:7.3f}"
         )

@@ -156,6 +156,109 @@ deviation shrinks as $\epsilon/a$ shrinks. This is a genuine artifact of
 collapsing a radial problem onto a line, not a bug in the integration -- and
 exactly what the genuine 3D model above avoids.
 
+## Results and analysis
+
+All numbers below are from the genuine 3D ($l=0$) radial model.
+
+### Width sweep: recovers the exact hydrogen ground state
+
+| trial shape | $a_0$ (optimal width) | $E_0$ (Hartree) | $\langle T\rangle/|\langle V\rangle|$ at $a_0$ |
+|---|---|---|---|
+| `hydrogen1s`, $e^{-r/a}$ | 1.0000 | -0.5000 | 0.5002 |
+| `gaussian`, $e^{-r^2/2a^2}$ | 1.3303 | -0.4244 | 0.4996 |
+
+![width sweep, hydrogen1s](output/radial_width_hydrogen1s.gif)
+
+*`hydrogen1s`, width swept a=4→0.06→4. The minimum sits at $a_0=1$ (the
+Bohr radius) with $E_0=-0.5$ Hartree and $\langle T\rangle/|\langle
+V\rangle|=0.5002$ -- the virial theorem, exact to 4 decimal places, because
+this trial shape at this width **is** the true hydrogen ground state, not
+an approximation to it. At the narrow end ($a=0.06$) $\langle T\rangle
+\approx 139$ Hartree, ~8x $|\langle V\rangle|$: confinement cost, not
+binding. At the wide end ($a=4$) $\langle T\rangle \approx 0.03$, and $E$
+has climbed back to within $0.28$ Hartree of the unbound $E=0$ line.*
+
+![width sweep, gaussian](output/radial_width_gaussian.gif)
+
+*`gaussian` version of the same sweep. The virial ratio still lands almost
+exactly on $0.5$ at its own minimum ($0.4996$) -- that part of the theorem
+holds for *any* shape under pure dilation, not just the correct one. But
+$E_0=-0.4244$ Hartree is measurably above the true $-0.5$: a Gaussian is a
+worse-shaped trial function than the exponential cusp, and the variational
+principle ($\langle H\rangle \geq E_\text{ground}$ for every normalized
+trial $\psi$) makes that gap visible directly as a higher minimum energy.*
+
+**Interpretation:** the width sweep *is* the classical variational
+calculation for the hydrogen atom. $\langle T\rangle \sim 1/a^2$ grows
+faster than $\langle V\rangle \sim -1/a$ shrinks as $a\to0$, so confinement
+always costs more kinetic energy than it gains in potential energy below
+some width -- the $E>0$ region on the left of panel 2 is the uncertainty
+principle made visible. The competition produces a minimum, and *only* at
+that minimum does $2\langle T\rangle=|\langle V\rangle|$ hold. This
+directly answers the question of whether solving the Schrödinger equation
+is "finding the lowest-energy wavefunction": yes, by the Rayleigh-Ritz
+variational principle, and the `hydrogen1s` curve reaching the exact,
+independently-known hydrogen ground state ($-0.5$ Hartree, $a_0=1$) is the
+proof -- a wide enough trial family finds the true answer, not just a bound
+on it.
+
+### Shell sweep: what the off-nucleus minimum does and doesn't mean
+
+| shell thickness $a$ | $r_0^*$ (optimal radius) | $E^*$ | $E(r_0=0)$ | bound? |
+|---|---|---|---|---|
+| 1.0 | 0.05 | -0.379 | -0.378 | yes -- minimum is negligibly off-center |
+| 0.7 | 0.43 | -0.182 | -0.081 | yes -- clear minimum, still bound |
+| 0.5 | 0.56 | +0.237 | +0.743 | no -- minimum exists, but unbound |
+| 0.2 | 0.54 | +5.32 | +13.11 | no -- dramatic, deeply unbound |
+| 0.1 | 0.51 | +24.01 | +63.71 | no -- extreme; $r_0=0$ is catastrophic |
+
+![shell sweep, a=0.2](output/radial_shell_gaussian.gif)
+
+*Shell thickness $a=0.2$, radius swept $r_0=0\to3.5\to0$. Energy dips to a
+minimum at $r_0^*\approx0.54$ ($E^*\approx+5.3$ Hartree) and rises sharply
+toward $r_0=0$ ($E\approx+13.1$) -- panel 4 visibly shows a compact ball at
+$r_0=0$ opening into a hollow shell as $r_0$ grows past $a$.*
+
+![shell sweep, a=0.1](output/radial_shell_gaussian_a0.1.gif)
+
+*Shell thickness $a=0.1$ (`--fixed-width 0.1`), same sweep. The mechanism
+is more extreme: $E(r_0=0)\approx+64$ Hartree vs. $E^*\approx+24$ at
+$r_0^*\approx0.51$ -- more than a 2.5x energy penalty just for centering
+this particular (too-thin) shell on the nucleus, all from the boundary
+clipping described below. $r_0^*$ itself barely moves between $a=0.2$ and
+$a=0.1$ (0.54 → 0.51): once $a$ is small enough for the clipping penalty to
+dominate, the optimal radius saturates at roughly $r_0^*\approx 2$–$3a$
+rather than continuing to track $a$.*
+
+**What the minimum means.** For a rigid Gaussian shell of fixed thickness
+$a$ centered at $r_0=0$, half its mass would sit at $r<0$, which doesn't
+exist -- the $r\geq0$ boundary clips it, and renormalizing the clipped half
+makes it taller and steeper, which is a real kinetic-energy cost (compare
+$\langle T\rangle(r_0{=}0)=18.75$ vs. the flat-space value $\langle
+T\rangle\approx6.3$ once $r_0$ clears the boundary, at $a=0.2$). Moving the
+shell out relieves that penalty quickly, while $\langle V\rangle$ only
+fades slowly ($\sim1/r_0$) -- so for $a$ thin enough, there's a radius
+where the trade-off is optimal. That's a genuine, correctly-computed
+result, not a numerical artifact.
+
+But it is a *different* result from "the electron prefers the Bohr
+radius." Compare the shell family's best achievable energy to the true
+ground state from the width sweep, $E=-0.5$: **every row in the table above
+is worse** -- even the best case ($a=1$, $E^*=-0.379$) falls short, and
+thin shells ($a\leq0.5$) aren't even bound. This is the variational
+principle again, from the other side: a shell of fixed, non-optimal
+thickness is a *restricted* trial family, and restricting the search can
+only ever match or underperform the true unrestricted minimum -- never
+beat it. If both $a$ and $r_0$ are set free simultaneously (i.e. the width
+sweep), the optimum collapses back onto $r_0=0$, $a=1$: the ordinary,
+nucleus-centered 1s orbital. The shell sweep's off-center minimum is real,
+but it's a statement about the cost of rigidity (forcing a bad width to
+stay put), not about where a free electron "wants" to be. That's a genuinely
+different mechanism from the textbook radial probability density
+$4\pi r^2\psi(r)^2$ peaking at the Bohr radius (see `shell` mode above),
+which requires no rigidity assumption at all -- it's a property of the true,
+unconstrained ground state itself.
+
 ## Requirements
 
 ```
