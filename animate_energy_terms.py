@@ -40,6 +40,7 @@ from schrodinger_terms import (
     energy_terms,
     make_grid,
     potential,
+    reparam_by_energy_variation,
     sweep_positions,
     sweep_widths,
     wavefunction,
@@ -73,12 +74,19 @@ def style_axis(ax):
 
 
 def run_width_mode(args, x, V):
-    a_max, a_min, n = 4.0, 0.35, 60
-    forward = np.linspace(a_max, a_min, n)  # start from a very large width
-    a_values = np.concatenate([forward, forward[-2:0:-1]])  # ping-pong loop
-    T_bg, V_bg, E_bg = sweep_widths(forward, x, V, args.kind)
-    sweep_bg = forward
+    a_max, a_min, n_frames, n_fine = 4.0, 0.35, 60, 400
+    # Fine, uniform grid for the smooth background curve and for finding
+    # the energy minimum -- unaffected by how the animation frames are sampled.
+    sweep_bg = np.linspace(a_min, a_max, n_fine)
+    T_bg, V_bg, E_bg = sweep_widths(sweep_bg, x, V, args.kind)
     a_star = sweep_bg[np.argmin(E_bg)]
+
+    # Animation frames: reparameterized to be denser where <T>/<V> vary
+    # fastest (small a) and sparser where they're flat (large a), then
+    # reversed so playback still starts from a very large width.
+    frames_ascending = reparam_by_energy_variation(sweep_bg, T_bg, V_bg, n_frames)
+    forward = frames_ascending[::-1]
+    a_values = np.concatenate([forward, forward[-2:0:-1]])  # ping-pong loop
 
     def frame_state(val):
         psi = wavefunction(x, val, args.kind, x0=0.0)
@@ -98,12 +106,15 @@ def run_width_mode(args, x, V):
 
 def run_position_mode(args, x, V):
     a_fixed = args.fixed_width
-    x0_max, n = 8.0, 60
-    forward = np.linspace(-x0_max, x0_max, n)  # start far from the nucleus
-    x0_values = np.concatenate([forward, forward[-2:0:-1]])
-    T_bg, V_bg, E_bg = sweep_positions(forward, x, V, a_fixed, args.kind)
-    sweep_bg = forward
+    x0_max, n_frames, n_fine = 8.0, 60, 400
+    sweep_bg = np.linspace(-x0_max, x0_max, n_fine)
+    T_bg, V_bg, E_bg = sweep_positions(sweep_bg, x, V, a_fixed, args.kind)
     x0_star = sweep_bg[np.argmin(E_bg)]
+
+    # Denser frames near the nucleus (x0=0), where <T>/<V> vary fastest;
+    # already starts far from the nucleus since sweep_bg is ascending.
+    forward = reparam_by_energy_variation(sweep_bg, T_bg, V_bg, n_frames)
+    x0_values = np.concatenate([forward, forward[-2:0:-1]])
 
     def frame_state(val):
         psi = wavefunction(x, a_fixed, args.kind, x0=val)
@@ -193,6 +204,10 @@ def main():
 
     fig.tight_layout(rect=[0, 0.08, 1, 0.93])
 
+    # Tolerance for flagging "near the extremum" is based on the actual
+    # (now non-uniform) frame spacing, not the fine background grid.
+    near_star_tol = np.median(np.abs(np.diff(sweep_values))) * 0.75
+
     def update(frame_idx):
         val = sweep_values[frame_idx]
         psi, T, Vexp = frame_state(val)
@@ -204,7 +219,7 @@ def main():
         bars[0].set_height(T)
         bars[1].set_height(abs(Vexp))
 
-        note = f" ({extremum_label})" if abs(val - star) < abs(sweep_bg[1] - sweep_bg[0]) else ""
+        note = f" ({extremum_label})" if abs(val - star) < near_star_tol else ""
         ratio_text.set_text(f"⟨T⟩/|⟨V⟩| = {ratio:.2f}{note}")
         info_text.set_text(
             f"{xlabel.split(' ')[0]} = {val:5.2f}    ⟨T⟩ = {T:6.3f}    ⟨V⟩ = {Vexp:7.3f}    E = {E:7.3f}"

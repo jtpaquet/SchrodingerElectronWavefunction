@@ -102,3 +102,23 @@ def sweep_positions(x0_values, x, V, a, kind="gaussian"):
         V_arr[i] = Vexp
     E_arr = T_arr + V_arr
     return T_arr, V_arr, E_arr
+
+
+def reparam_by_energy_variation(param_fine, T_fine, V_fine, n_samples):
+    """Pick `n_samples` values out of the monotonic `param_fine` grid,
+    spaced so that each consecutive pair changes <T>+<V> combined by
+    about the same amount -- i.e. denser sampling where the terms vary
+    fastest, sparser where they're flat.
+
+    Uses |dT|+|dV| rather than |d(T+V)| so the two terms are each kept
+    smooth individually: near an energy minimum dE/da=0 by definition,
+    but T and V are still changing there (just canceling), and it's
+    exactly that region a naive E-only weighting would under-sample.
+    """
+    weight = np.abs(np.diff(T_fine)) + np.abs(np.diff(V_fine))
+    if weight.sum() == 0:
+        weight = np.ones_like(weight)
+    s = np.concatenate([[0.0], np.cumsum(weight)])
+    s /= s[-1]
+    target_s = np.linspace(0.0, 1.0, n_samples)
+    return np.interp(target_s, s, param_fine)
