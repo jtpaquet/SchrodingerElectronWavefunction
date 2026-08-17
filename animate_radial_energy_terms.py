@@ -58,6 +58,7 @@ import numpy as np
 from matplotlib.animation import FuncAnimation, PillowWriter
 
 from schrodinger_terms import (
+    HAS_NODE,
     make_radial_grid,
     radial_energy_terms,
     radial_wavefunction,
@@ -82,6 +83,7 @@ COLOR_E = "#e34948"   # slot 8, red
 KIND_FORMULA = {
     "hydrogen1s": "exp(-|r-r0|/a)",
     "gaussian": "exp(-(r-r0)^2/2a^2)",
+    "hydrogen2s": "(1-r/2a)exp(-r/2a), a=1 is the exact 2s state",
 }
 
 
@@ -159,7 +161,7 @@ def run_shell_mode(args, r):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("mode", choices=["width", "shell"])
-    parser.add_argument("--kind", choices=["hydrogen1s", "gaussian"], default="gaussian")
+    parser.add_argument("--kind", choices=["hydrogen1s", "gaussian", "hydrogen2s"], default="gaussian")
     parser.add_argument("--fixed-width", type=float, default=0.2,
                          help="thickness `a` held fixed in shell mode (default 0.2: thin enough "
                               "that the r=0 boundary-clipping penalty dominates and the shell's "
@@ -191,13 +193,18 @@ def main():
     style_3d_axis(ax_cloud)
     fig.suptitle(title, color=INK_PRIMARY, fontsize=12, y=0.99)
 
-    # --- Panel 1: the radial wavefunction, normalized to psi/max(psi) so
-    # the y-axis stays fixed at [0,1] regardless of the raw amplitude ---
+    # --- Panel 1: the radial wavefunction, normalized to psi/max|psi| so
+    # the y-axis stays fixed regardless of the raw amplitude. Nodal shapes
+    # (e.g. hydrogen2s) change sign, so they get a symmetric range and an
+    # abs-max normalization instead of the plain [0,1] used for a bump.
+    has_node = HAS_NODE.get(args.kind, False)
     ax_psi.set_xlabel("r (Bohr radii)", color=INK_SECONDARY)
-    ax_psi.set_ylabel("ψ(r) / max(ψ)", color=INK_SECONDARY)
+    ax_psi.set_ylabel("ψ(r) / max|ψ|", color=INK_SECONDARY)
     ax_psi.set_title("1. Radial wavefunction (normalized)", color=INK_PRIMARY, fontsize=11)
     ax_psi.set_xlim(0, run["psi_window"])
-    ax_psi.set_ylim(0, 1.08)
+    ax_psi.set_ylim((-1.08, 1.08) if has_node else (0, 1.08))
+    if has_node:
+        ax_psi.axhline(0, color=BASELINE, linewidth=1)
     (line_psi,) = ax_psi.plot([], [], color=COLOR_T, linewidth=2)
     ax_psi.axvline(0, color=INK_MUTED, linewidth=1, linestyle=":")  # nucleus
 
@@ -262,7 +269,7 @@ def main():
         E = T + Vexp
         ratio = T / abs(Vexp)
 
-        line_psi.set_data(r, psi / psi.max())
+        line_psi.set_data(r, psi / np.abs(psi).max())
 
         marker_E.set_data([val], [E])
         marker_T.set_data([val], [T])

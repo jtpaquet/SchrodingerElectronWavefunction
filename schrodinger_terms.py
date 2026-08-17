@@ -86,12 +86,26 @@ def make_radial_grid(r_max=25.0, N=20000):
     return np.linspace(0.0, r_max, N)
 
 
+#: kinds whose shape crosses zero (has a radial node) -- these need a
+#: symmetric display range and abs-max normalization in the animation,
+#: instead of the [0, max] convention used for a strictly-positive bump.
+HAS_NODE = {"hydrogen1s": False, "gaussian": False, "hydrogen2s": True}
+
+
 def radial_wavefunction(r, a, kind="hydrogen1s", r0=0.0):
     dr = r - r0
     if kind == "hydrogen1s":
         psi = np.exp(-np.abs(dr) / a)
     elif kind == "gaussian":
         psi = np.exp(-(dr**2) / (2 * a**2))
+    elif kind == "hydrogen2s":
+        # The exact hydrogen 2s shape, rescaled as a whole by `a` (a=1
+        # reproduces the true 2s state exactly, same convention as
+        # "hydrogen1s"'s a=1 being the true 1s state). r0 shifts the
+        # whole shape's origin, same as the other kinds, but the natural
+        # use here is r0=0 -- see README.
+        x = dr / (2 * a)
+        psi = (1 - x) * np.exp(-np.abs(x))
     else:
         raise ValueError(f"unknown kind: {kind}")
     norm = np.sqrt(4 * np.pi * _trapz(r**2 * psi**2, r))
