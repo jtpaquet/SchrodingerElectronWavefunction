@@ -3,9 +3,7 @@ Animate the kinetic vs. Coulomb-potential energy split of a genuine 3D
 hydrogen-atom trial wavefunction, restricted to l=0 (spherically
 symmetric, no theta/phi dependence). Because the integrals use the
 actual spherical volume element 4*pi*r^2*dr, -1/r is integrable at the
-origin and no soft-core regularization is needed (contrast with
-animate_energy_terms.py's 1D-line model, which does need it -- see
-README).
+origin and no soft-core regularization is needed -- see README.
 
 Mode "width": the radial bump stays centered on the nucleus (r0=0), and
 its width `a` is swept from very large down to very small and back, well
@@ -16,15 +14,18 @@ Mode "shell": the width `a` is held fixed at a somewhat localized value,
 and the bump's center r0 -- the radius of a spherical shell of fixed
 thickness -- is swept outward from the nucleus and back. There's no way
 to "translate" a spherically symmetric function off-center without
-breaking the symmetry, so this (not a Cartesian shift) is the 3D
-equivalent of the flat-line model's position sweep. Unlike that flat
-model, this one can show a genuine energy minimum away from the
-nucleus: for a rigid shell thin enough to be clipped by the r=0
-boundary when centered there, moving it outward trades a shrinking
-potential-energy benefit against a shrinking "boundary truncation"
-kinetic-energy penalty -- see README for the full explanation and why
-it's a *different* mechanism from the textbook 4*pi*r^2 probability
-peak.
+breaking the symmetry, so this (not a Cartesian shift) is the natural
+way to sweep "how far is a localized electron from the nucleus" while
+staying in the l=0 family. It shows a genuine energy minimum away from
+the nucleus: at r0=0 the trial function is a compact, isotropic 3D blob
+(kinetic energy 3/(4a^2), confined in all 3 directions), while for
+r0>>a it's a thin shell, confined only radially (kinetic energy
+1/(4a^2)) -- 3x less. Moving the shell out trades that shrinking
+kinetic-energy benefit against slowly-fading potential energy, and the
+competition produces an interior minimum -- see README for the full
+derivation and why this is a real geometric effect of a spherical
+shell, not a numerical artifact, but still a *different* mechanism from
+the textbook 4*pi*r^2 probability peak.
 
 Four panels, all with axis scales fixed for the whole animation (no
 per-frame rescaling) so only the curves/points move, not the frame:

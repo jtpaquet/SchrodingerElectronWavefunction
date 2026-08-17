@@ -1,107 +1,49 @@
 """
-Kinetic vs. Coulomb-potential energy terms of a 1D trial wavefunction.
+Kinetic vs. Coulomb-potential energy terms of a 3D hydrogen-atom trial
+wavefunction, restricted to l=0 (spherically symmetric, no theta/phi
+dependence).
 
-Atomic units throughout: hbar = m_e = e^2/(4*pi*eps0) = 1.
+Atomic units throughout: hbar = m_e = e^2/(4*pi*eps0) = 1. The
+time-independent Schrodinger equation splits into its two energy terms:
 
-The time-independent Schrodinger equation is split into its two energy
-terms:
+    H psi = T psi + V psi = -1/2 * Laplacian(psi) + V(r) psi
 
-    H psi = T psi + V psi = -1/2 psi'' + V(x) psi
+For a function of r alone, the 3D integrals collapse to 1D integrals
+over r with the spherical volume element 4*pi*r^2*dr:
 
-For a normalized trial wavefunction psi(x), the expectation values are
+    1    =  4*pi * Integral psi(r)^2 r^2 dr
+    <T>  =  2*pi * Integral psi'(r)^2 r^2 dr
+    <V>  = -4*pi * Integral psi(r)^2 r dr        (V(r) = -1/r)
 
-    <T> = 1/2 * Integral |psi'(x)|^2 dx      (integration by parts,
-                                                psi -> 0 at +/-infinity)
-    <V> = Integral |psi(x)|^2 V(x) dx
+The r^2 measure makes -1/r integrable at r=0 on its own -- no soft-core
+regularization needed. <T>'s r^2 weight also makes psi'(0) harmless even
+though it multiplies a 1/r^2-type curvature term in the full Laplacian;
+that term is exactly what integration by parts turns into r^2*psi'^2
+here (see README).
 
-This module builds two families of trial wavefunctions, each shiftable
-to a center x0:
+Two trial wavefunction shapes, each shiftable to a center r0:
 
-  * "hydrogen1s": psi(x; a, x0) = exp(-|x-x0|/a), the 1D analogue of the
-    hydrogen 1s radial profile (a is the analogue of the Bohr radius).
-  * "gaussian":   psi(x; a, x0) = exp(-(x-x0)^2 / (2 a^2))
-
-against a soft-core 1D Coulomb potential V(x) = -1/sqrt(x^2 + eps^2)
-centered on a fixed nucleus at the origin. The softening (eps) removes
-the 1/x divergence at the origin so the potential-energy integral stays
-finite on a discrete grid; physically it stands in for a nucleus of
-finite size.
+  * "hydrogen1s": psi(r; a, r0) = exp(-|r-r0|/a), the exact hydrogen
+    1s radial profile when r0=0 (a is the Bohr radius).
+  * "gaussian":   psi(r; a, r0) = exp(-(r-r0)^2 / (2 a^2))
 
 Two independent sweeps are supported:
 
-  * sweep_widths    -- vary the width `a` with the wavefunction centered
-                        on the nucleus (x0 = 0). Models "how spread out
-                        is the electron".
-  * sweep_positions -- fix the width `a` (a somewhat localized electron)
-                        and vary the center x0. Models "how far from the
-                        nucleus is the (equally-localized) electron".
-                        Note: `x0` is used rather than `r0` (too easily
-                        read as a Bohr radius) or `a` (already the width).
+  * sweep_radial_widths -- the bump is centered on the nucleus (r0=0);
+    its width `a` is swept. Models "how spread out is the electron".
+  * sweep_radial_shells -- width `a` fixed, and the bump's center r0
+    (the radius of a spherical shell of fixed thickness) is swept
+    outward. There's no way to "translate" a spherically symmetric
+    function off-center without breaking the symmetry, so this -- not
+    a Cartesian shift -- is the natural equivalent of moving a
+    localized electron away from the nucleus while keeping it equally
+    localized.
 """
 
 import numpy as np
 
 # numpy >=2.0 renamed trapz -> trapezoid
 _trapz = getattr(np, "trapezoid", None) or np.trapz
-
-EPS_SOFTENING = 0.2
-
-
-def make_grid(L=40.0, N=4000):
-    return np.linspace(-L, L, N)
-
-
-def potential(x, eps=EPS_SOFTENING):
-    return -1.0 / np.sqrt(x**2 + eps**2)
-
-
-def wavefunction(x, a, kind="hydrogen1s", x0=0.0):
-    dx = x - x0
-    if kind == "hydrogen1s":
-        psi = np.exp(-np.abs(dx) / a)
-    elif kind == "gaussian":
-        psi = np.exp(-(dx**2) / (2 * a**2))
-    else:
-        raise ValueError(f"unknown kind: {kind}")
-    norm = np.sqrt(_trapz(psi**2, x))
-    return psi / norm
-
-
-def energy_terms(x, psi, V):
-    """Return (T, Vexp, kinetic_density, potential_density)."""
-    dpsi_dx = np.gradient(psi, x)
-    kinetic_density = 0.5 * dpsi_dx**2
-    potential_density = psi**2 * V
-    T = _trapz(kinetic_density, x)
-    Vexp = _trapz(potential_density, x)
-    return T, Vexp, kinetic_density, potential_density
-
-
-def sweep_widths(a_values, x, V, kind="hydrogen1s"):
-    """Precompute T(a), V(a), E(a) with the wavefunction centered at x0=0."""
-    T_arr = np.empty_like(a_values)
-    V_arr = np.empty_like(a_values)
-    for i, a in enumerate(a_values):
-        psi = wavefunction(x, a, kind, x0=0.0)
-        T, Vexp, _, _ = energy_terms(x, psi, V)
-        T_arr[i] = T
-        V_arr[i] = Vexp
-    E_arr = T_arr + V_arr
-    return T_arr, V_arr, E_arr
-
-
-def sweep_positions(x0_values, x, V, a, kind="gaussian"):
-    """Precompute T(x0), V(x0), E(x0) for a fixed-width wavefunction whose
-    center x0 is swept away from the nucleus at the origin."""
-    T_arr = np.empty_like(x0_values)
-    V_arr = np.empty_like(x0_values)
-    for i, x0 in enumerate(x0_values):
-        psi = wavefunction(x, a, kind, x0=x0)
-        T, Vexp, _, _ = energy_terms(x, psi, V)
-        T_arr[i] = T
-        V_arr[i] = Vexp
-    E_arr = T_arr + V_arr
-    return T_arr, V_arr, E_arr
 
 
 def reparam_by_energy_variation(param_fine, T_fine, V_fine, n_samples, log_compress=True):
@@ -138,34 +80,6 @@ def reparam_by_energy_variation(param_fine, T_fine, V_fine, n_samples, log_compr
     s /= s[-1]
     target_s = np.linspace(0.0, 1.0, n_samples)
     return np.interp(target_s, s, param_fine)
-
-
-# --- Genuine 3D hydrogen atom, restricted to l=0 (spherically symmetric,
-# no theta/phi dependence) trial wavefunctions psi(r). --------------------
-#
-# For a function of r alone, the 3D integrals collapse to 1D integrals
-# over r with the spherical volume element 4*pi*r^2*dr:
-#
-#     1 = 4*pi * Integral psi(r)^2 r^2 dr
-#     <T> = 2*pi * Integral psi'(r)^2 r^2 dr
-#     <V> = -4*pi * Integral psi(r)^2 r dr        (V(r) = -1/r)
-#
-# The r^2 measure makes -1/r integrable at r=0 -- no soft-core needed,
-# unlike the 1D-line model above. <T>'s r^2 weight also makes psi'(0)
-# harmless even though it multiplies a 1/r^2-type curvature term in the
-# full Laplacian; that term is exactly what integration by parts turns
-# into r^2*psi'^2 here (see README).
-#
-# Two sweeps, both still built from a single radial "bump" shape:
-#   * width sweep -- the bump is centered on the nucleus (r0=0); its
-#     width `a` is swept. This is the exact 3D analogue of sweep_widths.
-#   * shell sweep -- width `a` fixed, and the bump's center r0 is swept
-#     outward, i.e. a spherical shell of fixed thickness whose radius
-#     expands. This is the 3D analogue of sweep_positions/x0 -- there's
-#     no way to "translate" a spherically symmetric function off-center
-#     without breaking the symmetry, so the natural equivalent of moving
-#     a localized electron away from the nucleus is moving the radius of
-#     a shell, not a Cartesian shift.
 
 
 def make_radial_grid(r_max=25.0, N=20000):
