@@ -215,7 +215,7 @@ $2/\sqrt\pi$) as a cross-check.
 $R^\ast=0$ in every row -- this is Result 2, and this table is the
 evidence for it.
 
-## The ns states, n=1..4
+## The ns states, n=1..4, 10
 
 The 1s width sweep is a variational search over a one-lobe family; the same
 idea generalizes to every s-state at once. The exact hydrogen ns ($l=0$)
@@ -225,9 +225,9 @@ uses the associated Laguerre polynomial $L_{n-1}^1$:
 $$\psi(r;a)=e^{-x}L_{n-1}^1(2x), \quad x=\frac{r}{na}$$
 
 ```
-python animate_radial_energy_terms.py width --kind hydrogen2s -o output/radial_width_hydrogen2s.gif
-python animate_radial_energy_terms.py width --kind hydrogen3s -o output/radial_width_hydrogen3s.gif
-python animate_radial_energy_terms.py width --kind hydrogen4s -o output/radial_width_hydrogen4s.gif
+python animate_radial_energy_terms.py width --kind hydrogen2s  -o output/radial_width_hydrogen2s.gif
+python animate_radial_energy_terms.py width --kind hydrogen4s  -o output/radial_width_hydrogen4s.gif
+python animate_radial_energy_terms.py width --kind hydrogen10s -o output/radial_width_hydrogen10s.gif
 ```
 
 | $n$ | $a^\ast$ | $E^\ast$ | exact $-1/(2n^2)$ | ratio | nodes |
@@ -236,10 +236,11 @@ python animate_radial_energy_terms.py width --kind hydrogen4s -o output/radial_w
 | 2 | 1.000 | -0.1250 | -0.1250 | 0.5000 | 1 |
 | 3 | 0.997 | -0.0556 | -0.0556 | 0.5000 | 2 |
 | 4 | 0.998 | -0.0312 | -0.0312 | 0.5000 | 3 |
+| 10 | 1.002 | -0.0050 | -0.0050 | 0.5000 | 9 |
 
 ![width sweep, hydrogen2s](output/radial_width_hydrogen2s.gif)
-![width sweep, hydrogen3s](output/radial_width_hydrogen3s.gif)
 ![width sweep, hydrogen4s](output/radial_width_hydrogen4s.gif)
+![width sweep, hydrogen10s](output/radial_width_hydrogen10s.gif)
 
 Every row: minimum at $a=1$, exact energy, exact virial ratio, correct node
 count ($n-1$). This only works because $a$ rescales the *entire* shape
@@ -253,12 +254,43 @@ orthogonal to every lower state (here, implicitly, by keeping the shape
 exactly right).
 
 One practical trap hit building this: higher-$n$ states are physically
-larger (extent grows roughly with $n$), so they need a larger grid than 1s
-does. Reusing the 1s grid ($r_{\max}=25$) for `hydrogen4s` silently
-truncated the tail, corrupting the normalization -- energy off by ~10% and
-the virial ratio wrong (0.62 instead of 0.5). `WIDTH_GRID` in
-`animate_radial_energy_terms.py` now sizes $r_{\max}$ and grid resolution
-per state ($r_{\max}=25/80/90/110$ for $n=1/2/3/4$).
+larger (extent grows roughly with $n$: $r_{\max}\approx400$ was needed for
+$n=10$, vs. $25$ for $n=1$), so they need a larger grid than 1s does.
+Reusing the 1s grid for `hydrogen4s` silently truncated the tail,
+corrupting the normalization -- energy off by ~10% and the virial ratio
+wrong (0.62 instead of 0.5). Rather than hand-tune a grid size for every
+future $n$, `width_grid_for_kind` in `animate_radial_energy_terms.py` now
+estimates $r_{\max}$ directly (a quick coarse scan for the radius holding
+99.9% of the density) for any `hydrogenNs`, falling back to hand-tuned
+values only for the shapes already checked against exact energies above.
+
+**A different way to avoid $r=0$: `quartic`, $\psi(r;a)=r^4e^{-r/a}$.**
+Every ns state above still has $\psi(0)\neq0$ (true even with $n-1$ nodes
+further out); this shape is forced to vanish at the origin to 4th order
+instead, to test directly whether that matters:
+
+```
+python animate_radial_energy_terms.py width --kind quartic -o output/radial_width_quartic.gif
+```
+
+![width sweep, quartic](output/radial_width_quartic.gif)
+
+Minimum at $a^\ast=0.554$, $E^\ast=-0.180$ Hartree, virial ratio $0.500$
+(that part always holds under pure dilation). Compare to `hydrogen1s`'s
+exact $-0.5$: **both are nodeless, single-lobe shapes**, differing only in
+whether they're forced away from $r=0$ -- and forcing it away costs $0.32$
+Hartree, a large fraction of the whole binding energy. That's a direct,
+quantitative version of the "why $\psi$ peaks at $r=0$" answer below: for
+$l=0$, avoiding the origin is expensive, so the true ground state doesn't.
+
+One caveat worth being explicit about: $r^4e^{-r/a}$ happens to be the
+exact *shape* of hydrogen's nodeless $l=4$ state (5g), but the energy above
+is **not** the true 5g energy ($-1/50$) -- this project's $\langle
+T\rangle$ formula has no centrifugal term ($l(l+1)/2r^2$), because it was
+derived for $l=0$ only (see the proof). Plugging an $l=4$-shaped function
+into the $l=0$ functional answers "what does avoiding $r=0$ cost an s-state
+candidate," which is what was asked; it is not a real g-orbital
+calculation.
 
 ## Why does $\psi$ peak at $r=0$ at all?
 

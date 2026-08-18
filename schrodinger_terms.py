@@ -40,6 +40,8 @@ Two independent sweeps are supported:
     localized.
 """
 
+import re
+
 import numpy as np
 from scipy.special import eval_genlaguerre
 
@@ -87,34 +89,49 @@ def make_radial_grid(r_max=25.0, N=20000):
     return np.linspace(0.0, r_max, N)
 
 
-#: kinds whose shape crosses zero (has a radial node) -- these need a
-#: symmetric display range and abs-max normalization in the animation,
-#: instead of the [0, max] convention used for a strictly-positive bump.
-HAS_NODE = {
-    "hydrogen1s": False, "gaussian": False,
-    "hydrogen2s": True, "hydrogen3s": True, "hydrogen4s": True,
-}
+#: "hydrogenNs" for any positive integer N, e.g. "hydrogen1s", "hydrogen10s".
+_HYDROGEN_NS_RE = re.compile(r"^hydrogen(\d+)s$")
 
-#: exact hydrogen ns (l=0) principal quantum numbers, for the
-#: "hydrogenNs" kinds below.
-_HYDROGEN_NS_N = {"hydrogen1s": 1, "hydrogen2s": 2, "hydrogen3s": 3, "hydrogen4s": 4}
+
+def hydrogen_ns_n(kind):
+    """Return the principal quantum number N for a "hydrogenNs" kind, or
+    None if `kind` isn't one (e.g. "gaussian")."""
+    m = _HYDROGEN_NS_RE.match(kind)
+    return int(m.group(1)) if m else None
+
+
+def has_node(kind):
+    """Whether this kind's shape crosses zero (has a radial node) -- these
+    need a symmetric display range and abs-max normalization in the
+    animation, instead of the [0, max] convention used for a strictly-
+    positive bump."""
+    n = hydrogen_ns_n(kind)
+    return n is not None and n > 1
 
 
 def radial_wavefunction(r, a, kind="hydrogen1s", r0=0.0):
     dr = r - r0
     if kind == "gaussian":
         psi = np.exp(-(dr**2) / (2 * a**2))
-    elif kind in _HYDROGEN_NS_N:
+    elif kind == "quartic":
+        # r^4 * exp(-r/a): forced to vanish (to 4th order) at the origin,
+        # unlike every hydrogenNs kind, which all have psi(0)!=0. Plugged
+        # into the same l=0 energy functional (no centrifugal term -- this
+        # is *not* the true l=4 calculation, which would need one -- see
+        # README), so it directly probes what "avoiding r=0" costs on its
+        # own: its best energy is markedly worse than hydrogen1s's exact
+        # -0.5, even though both are single-lobe, nodeless shapes.
+        psi = dr**4 * np.exp(-np.abs(dr) / a)
+    elif (n := hydrogen_ns_n(kind)) is not None:
         # The exact hydrogen ns (l=0) shape, rescaled as a whole by `a`
         # (a=1 reproduces the true ns state exactly): psi(r) = e^{-x} *
         # L_{n-1}^1(2x), x = |r-r0|/(n*a), the standard hydrogen radial
         # wavefunction with the associated Laguerre polynomial L_{n-1}^1
         # (verified numerically against the exact energies -1/(2n^2) and
-        # exact virial ratio 0.5 for n=1..4 -- see README). n=1 reduces
-        # to the plain exponential (L_0^1 is a nonzero constant); r0
-        # shifts the whole shape's origin, same as the other kinds, but
+        # exact virial ratio 0.5 for n=1..4 and n=10 -- see README). n=1
+        # reduces to the plain exponential (L_0^1 is a nonzero constant);
+        # r0 shifts the whole shape's origin, same as the other kinds, but
         # the natural use here is r0=0 -- see README.
-        n = _HYDROGEN_NS_N[kind]
         x = np.abs(dr) / (n * a)
         psi = np.exp(-x) * eval_genlaguerre(n - 1, 1, 2 * x)
     else:

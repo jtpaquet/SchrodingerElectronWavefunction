@@ -58,7 +58,8 @@ import numpy as np
 from matplotlib.animation import FuncAnimation, PillowWriter
 
 from schrodinger_terms import (
-    HAS_NODE,
+    has_node,
+    hydrogen_ns_n,
     make_radial_grid,
     radial_energy_terms,
     radial_wavefunction,
@@ -80,13 +81,27 @@ COLOR_T = "#2a78d6"   # slot 1, blue
 COLOR_V = "#eb6834"   # slot 2, orange
 COLOR_E = "#e34948"   # slot 8, red
 
-KIND_FORMULA = {
-    "hydrogen1s": "exp(-|r-r0|/a)",
-    "gaussian": "exp(-(r-r0)^2/2a^2)",
-    "hydrogen2s": "e^-x L_1^1(2x), x=r/2a; a=1 is the exact 2s state",
-    "hydrogen3s": "e^-x L_2^1(2x), x=r/3a; a=1 is the exact 3s state",
-    "hydrogen4s": "e^-x L_3^1(2x), x=r/4a; a=1 is the exact 4s state",
-}
+def kind_type(kind):
+    """argparse type= validator for --kind: gaussian, quartic, or any
+    hydrogenNs (N a positive integer)."""
+    if kind in ("gaussian", "quartic") or hydrogen_ns_n(kind) is not None:
+        return kind
+    raise argparse.ArgumentTypeError(
+        f"invalid kind: {kind!r} (expected gaussian, quartic, or hydrogenNs e.g. hydrogen1s, hydrogen10s)"
+    )
+
+
+def kind_formula(kind):
+    if kind == "gaussian":
+        return "exp(-(r-r0)^2/2a^2)"
+    if kind == "quartic":
+        return "(r-r0)^4 exp(-|r-r0|/a)  [l=0 functional, not the true l=4 energy]"
+    n = hydrogen_ns_n(kind)
+    if n == 1:
+        return "exp(-|r-r0|/a)"
+    if n is not None:
+        return f"e^-x L_{n-1}^1(2x), x=r/{n}a; a=1 is the exact {n}s state"
+    raise ValueError(f"unknown kind: {kind}")
 
 
 def style_axis(ax):
@@ -109,25 +124,49 @@ def style_3d_axis(ax):
     ax.zaxis.label.set_color(INK_SECONDARY)
 
 
-#: per-kind grid/sweep sizing for width mode. Higher-n hydrogenNs states
-#: are physically larger (extent scales roughly with n), so they need a
+#: per-kind grid/sweep sizing for width mode, hand-tuned and tested for
+#: the shapes used in the README. Higher-n hydrogenNs states are
+#: physically larger (extent scales roughly with n), so they need a
 #: larger r_max (and finer N to match, to keep resolution at the a_min
 #: end) -- reusing the n=1 grid for them silently truncates the tail and
 #: corrupts the normalization (verified: n=4 on the n=1 grid was off by
 #: ~10% in energy and gave the wrong virial ratio). a_max is capped lower
 #: for higher n to keep the grid size reasonable; the interesting minimum
 #: at a=1 is still comfortably bracketed.
-WIDTH_GRID = {
+_WIDTH_GRID_EXPLICIT = {
     "hydrogen1s": dict(a_max=4.0, r_max=25.0, N=20000, window=15.0),
     "gaussian": dict(a_max=4.0, r_max=25.0, N=20000, window=15.0),
+    "quartic": dict(a_max=4.0, r_max=60.0, N=24000, window=35.0),
     "hydrogen2s": dict(a_max=4.0, r_max=80.0, N=32000, window=45.0),
     "hydrogen3s": dict(a_max=2.5, r_max=90.0, N=32000, window=55.0),
     "hydrogen4s": dict(a_max=2.0, r_max=110.0, N=36000, window=70.0),
 }
 
 
+def width_grid_for_kind(kind):
+    """Grid/sweep sizing for width mode. Explicit, tested values for the
+    shapes above; for any other hydrogenNs (e.g. a new n like n=10),
+    estimate r_max from where the density actually lives instead of
+    guessing -- extent grows with n, so a fixed r_max either wastes
+    resolution (small n) or truncates the tail and corrupts the
+    normalization (large n, see the note above)."""
+    if kind in _WIDTH_GRID_EXPLICIT:
+        return _WIDTH_GRID_EXPLICIT[kind]
+    n = hydrogen_ns_n(kind)
+    if n is None:
+        raise ValueError(f"no width-mode grid known for kind: {kind}")
+    a_max = 1.2  # kept modest for high n so r_max (which scales with n*a_max) stays tractable
+    r_probe = np.linspace(0.0, 60 * n * a_max, 40000)
+    psi_probe = radial_wavefunction(r_probe, a_max, kind, r0=0.0)
+    density = r_probe**2 * psi_probe**2
+    cum = np.cumsum(density)
+    cum /= cum[-1]
+    r_999 = r_probe[np.searchsorted(cum, 0.999)]
+    return dict(a_max=a_max, r_max=r_999 * 1.3, N=36000, window=r_999 * 0.85)
+
+
 def run_width_mode(args, r):
-    a_max, a_min, n_frames, n_fine = WIDTH_GRID[args.kind]["a_max"], 0.06, 70, 500
+    a_max, a_min, n_frames, n_fine = width_grid_for_kind(args.kind)["a_max"], 0.06, 70, 500
     sweep_bg = np.geomspace(a_min, a_max, n_fine)
     T_bg, V_bg, E_bg = sweep_radial_widths(sweep_bg, r, args.kind)
     a_star = sweep_bg[np.argmin(E_bg)]
@@ -141,9 +180,9 @@ def run_width_mode(args, r):
         T, Vexp, _, _ = radial_energy_terms(r, psi)
         return psi, T, Vexp
 
-    title = f"ψ(r;a) = {KIND_FORMULA[args.kind]}, l=0, centered on the nucleus  --  sweeping width a"
+    title = f"ψ(r;a) = {kind_formula(args.kind)}, l=0, centered on the nucleus  --  sweeping width a"
     xlabel = "width parameter a"
-    window = WIDTH_GRID[args.kind]["window"]
+    window = width_grid_for_kind(args.kind)["window"]
     return dict(
         sweep_values=a_values, sweep_bg=sweep_bg, T_bg=T_bg, V_bg=V_bg, E_bg=E_bg, star=a_star,
         frame_state=frame_state, title=title, xlabel=xlabel,
@@ -167,7 +206,7 @@ def run_shell_mode(args, r):
         return psi, T, Vexp
 
     title = (
-        f"ψ(r;r0) = {KIND_FORMULA[args.kind]}, l=0, fixed thickness a={a_fixed:.2f}"
+        f"ψ(r;r0) = {kind_formula(args.kind)}, l=0, fixed thickness a={a_fixed:.2f}"
         "  --  sweeping shell radius r0"
     )
     xlabel = "shell radius r0"
@@ -181,8 +220,9 @@ def run_shell_mode(args, r):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("mode", choices=["width", "shell"])
-    parser.add_argument("--kind", choices=["hydrogen1s", "gaussian", "hydrogen2s", "hydrogen3s", "hydrogen4s"],
-                         default="gaussian")
+    parser.add_argument("--kind", type=kind_type, default="gaussian",
+                         help="gaussian, quartic, or hydrogenNs for any positive integer N "
+                              "(e.g. hydrogen1s, hydrogen10s)")
     parser.add_argument("--fixed-width", type=float, default=0.2,
                          help="thickness `a` held fixed in shell mode (default 0.2: thin enough "
                               "that the r=0 boundary-clipping penalty dominates and the shell's "
@@ -196,7 +236,7 @@ def main():
     output = args.output or f"output/radial_{args.mode}_{args.kind}.gif"
 
     if args.mode == "width":
-        g = WIDTH_GRID[args.kind]
+        g = width_grid_for_kind(args.kind)
         r = make_radial_grid(r_max=g["r_max"], N=g["N"])
     else:
         r = make_radial_grid(r_max=20.0, N=8000)
@@ -222,13 +262,13 @@ def main():
     # the y-axis stays fixed regardless of the raw amplitude. Nodal shapes
     # (e.g. hydrogen2s) change sign, so they get a symmetric range and an
     # abs-max normalization instead of the plain [0,1] used for a bump.
-    has_node = HAS_NODE.get(args.kind, False)
+    kind_has_node = has_node(args.kind)
     ax_psi.set_xlabel("r (Bohr radii)", color=INK_SECONDARY)
     ax_psi.set_ylabel("ψ(r) / max|ψ|", color=INK_SECONDARY)
     ax_psi.set_title("1. Radial wavefunction (normalized)", color=INK_PRIMARY, fontsize=11)
     ax_psi.set_xlim(0, run["psi_window"])
-    ax_psi.set_ylim((-1.08, 1.08) if has_node else (0, 1.08))
-    if has_node:
+    ax_psi.set_ylim((-1.08, 1.08) if kind_has_node else (0, 1.08))
+    if kind_has_node:
         ax_psi.axhline(0, color=BASELINE, linewidth=1)
     (line_psi,) = ax_psi.plot([], [], color=COLOR_T, linewidth=2)
     ax_psi.axvline(0, color=INK_MUTED, linewidth=1, linestyle=":")  # nucleus
