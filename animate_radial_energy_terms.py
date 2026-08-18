@@ -83,7 +83,9 @@ COLOR_E = "#e34948"   # slot 8, red
 KIND_FORMULA = {
     "hydrogen1s": "exp(-|r-r0|/a)",
     "gaussian": "exp(-(r-r0)^2/2a^2)",
-    "hydrogen2s": "(1-r/2a)exp(-r/2a), a=1 is the exact 2s state",
+    "hydrogen2s": "e^-x L_1^1(2x), x=r/2a; a=1 is the exact 2s state",
+    "hydrogen3s": "e^-x L_2^1(2x), x=r/3a; a=1 is the exact 3s state",
+    "hydrogen4s": "e^-x L_3^1(2x), x=r/4a; a=1 is the exact 4s state",
 }
 
 
@@ -107,8 +109,25 @@ def style_3d_axis(ax):
     ax.zaxis.label.set_color(INK_SECONDARY)
 
 
+#: per-kind grid/sweep sizing for width mode. Higher-n hydrogenNs states
+#: are physically larger (extent scales roughly with n), so they need a
+#: larger r_max (and finer N to match, to keep resolution at the a_min
+#: end) -- reusing the n=1 grid for them silently truncates the tail and
+#: corrupts the normalization (verified: n=4 on the n=1 grid was off by
+#: ~10% in energy and gave the wrong virial ratio). a_max is capped lower
+#: for higher n to keep the grid size reasonable; the interesting minimum
+#: at a=1 is still comfortably bracketed.
+WIDTH_GRID = {
+    "hydrogen1s": dict(a_max=4.0, r_max=25.0, N=20000, window=15.0),
+    "gaussian": dict(a_max=4.0, r_max=25.0, N=20000, window=15.0),
+    "hydrogen2s": dict(a_max=4.0, r_max=80.0, N=32000, window=45.0),
+    "hydrogen3s": dict(a_max=2.5, r_max=90.0, N=32000, window=55.0),
+    "hydrogen4s": dict(a_max=2.0, r_max=110.0, N=36000, window=70.0),
+}
+
+
 def run_width_mode(args, r):
-    a_max, a_min, n_frames, n_fine = 4.0, 0.06, 70, 500
+    a_max, a_min, n_frames, n_fine = WIDTH_GRID[args.kind]["a_max"], 0.06, 70, 500
     sweep_bg = np.geomspace(a_min, a_max, n_fine)
     T_bg, V_bg, E_bg = sweep_radial_widths(sweep_bg, r, args.kind)
     a_star = sweep_bg[np.argmin(E_bg)]
@@ -124,10 +143,11 @@ def run_width_mode(args, r):
 
     title = f"ψ(r;a) = {KIND_FORMULA[args.kind]}, l=0, centered on the nucleus  --  sweeping width a"
     xlabel = "width parameter a"
+    window = WIDTH_GRID[args.kind]["window"]
     return dict(
         sweep_values=a_values, sweep_bg=sweep_bg, T_bg=T_bg, V_bg=V_bg, E_bg=E_bg, star=a_star,
         frame_state=frame_state, title=title, xlabel=xlabel,
-        log_x=True, psi_window=15.0, cloud_window=15.0,
+        log_x=True, psi_window=window, cloud_window=window,
     )
 
 
@@ -161,7 +181,8 @@ def run_shell_mode(args, r):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("mode", choices=["width", "shell"])
-    parser.add_argument("--kind", choices=["hydrogen1s", "gaussian", "hydrogen2s"], default="gaussian")
+    parser.add_argument("--kind", choices=["hydrogen1s", "gaussian", "hydrogen2s", "hydrogen3s", "hydrogen4s"],
+                         default="gaussian")
     parser.add_argument("--fixed-width", type=float, default=0.2,
                          help="thickness `a` held fixed in shell mode (default 0.2: thin enough "
                               "that the r=0 boundary-clipping penalty dominates and the shell's "
@@ -174,7 +195,11 @@ def main():
     args = parser.parse_args()
     output = args.output or f"output/radial_{args.mode}_{args.kind}.gif"
 
-    r = make_radial_grid(r_max=25.0, N=20000) if args.mode == "width" else make_radial_grid(r_max=20.0, N=8000)
+    if args.mode == "width":
+        g = WIDTH_GRID[args.kind]
+        r = make_radial_grid(r_max=g["r_max"], N=g["N"])
+    else:
+        r = make_radial_grid(r_max=20.0, N=8000)
     rng = np.random.default_rng(args.seed)
 
     run = (run_width_mode if args.mode == "width" else run_shell_mode)(args, r)

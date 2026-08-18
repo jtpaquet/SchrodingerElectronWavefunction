@@ -41,6 +41,7 @@ Two independent sweeps are supported:
 """
 
 import numpy as np
+from scipy.special import eval_genlaguerre
 
 # numpy >=2.0 renamed trapz -> trapezoid
 _trapz = getattr(np, "trapezoid", None) or np.trapz
@@ -89,23 +90,33 @@ def make_radial_grid(r_max=25.0, N=20000):
 #: kinds whose shape crosses zero (has a radial node) -- these need a
 #: symmetric display range and abs-max normalization in the animation,
 #: instead of the [0, max] convention used for a strictly-positive bump.
-HAS_NODE = {"hydrogen1s": False, "gaussian": False, "hydrogen2s": True}
+HAS_NODE = {
+    "hydrogen1s": False, "gaussian": False,
+    "hydrogen2s": True, "hydrogen3s": True, "hydrogen4s": True,
+}
+
+#: exact hydrogen ns (l=0) principal quantum numbers, for the
+#: "hydrogenNs" kinds below.
+_HYDROGEN_NS_N = {"hydrogen1s": 1, "hydrogen2s": 2, "hydrogen3s": 3, "hydrogen4s": 4}
 
 
 def radial_wavefunction(r, a, kind="hydrogen1s", r0=0.0):
     dr = r - r0
-    if kind == "hydrogen1s":
-        psi = np.exp(-np.abs(dr) / a)
-    elif kind == "gaussian":
+    if kind == "gaussian":
         psi = np.exp(-(dr**2) / (2 * a**2))
-    elif kind == "hydrogen2s":
-        # The exact hydrogen 2s shape, rescaled as a whole by `a` (a=1
-        # reproduces the true 2s state exactly, same convention as
-        # "hydrogen1s"'s a=1 being the true 1s state). r0 shifts the
-        # whole shape's origin, same as the other kinds, but the natural
-        # use here is r0=0 -- see README.
-        x = dr / (2 * a)
-        psi = (1 - x) * np.exp(-np.abs(x))
+    elif kind in _HYDROGEN_NS_N:
+        # The exact hydrogen ns (l=0) shape, rescaled as a whole by `a`
+        # (a=1 reproduces the true ns state exactly): psi(r) = e^{-x} *
+        # L_{n-1}^1(2x), x = |r-r0|/(n*a), the standard hydrogen radial
+        # wavefunction with the associated Laguerre polynomial L_{n-1}^1
+        # (verified numerically against the exact energies -1/(2n^2) and
+        # exact virial ratio 0.5 for n=1..4 -- see README). n=1 reduces
+        # to the plain exponential (L_0^1 is a nonzero constant); r0
+        # shifts the whole shape's origin, same as the other kinds, but
+        # the natural use here is r0=0 -- see README.
+        n = _HYDROGEN_NS_N[kind]
+        x = np.abs(dr) / (n * a)
+        psi = np.exp(-x) * eval_genlaguerre(n - 1, 1, 2 * x)
     else:
         raise ValueError(f"unknown kind: {kind}")
     norm = np.sqrt(4 * np.pi * _trapz(r**2 * psi**2, r))

@@ -118,10 +118,10 @@ T\rangle$'s integration by parts vanishes on its own.
 |---|---|---|---|---|---|
 | `hydrogen1s`, $e^{-r/a}$ | 0.1 | 50.00 | -10.00 | 40.00 | 5.00 |
 | `hydrogen1s`, $e^{-r/a}$ | **1.0 (optimal)** | **0.5000** | **-1.0000** | **-0.5000** | **0.5002** |
-| `hydrogen1s`, $e^{-r/a}$ | 10 | 0.0050 | -0.1096 | -0.1046 | 0.0456 |
+| `hydrogen1s`, $e^{-r/a}$ | 10 | 0.0050 | -0.1000 | -0.0950 | 0.0500 |
 | `gaussian`, $e^{-r^2/2a^2}$ | 0.1 | 75.00 | -11.28 | 63.71 | 6.65 |
 | `gaussian`, $e^{-r^2/2a^2}$ | **1.3303 (optimal)** | **0.4238** | **-0.8482** | **-0.4244** | **0.4996** |
-| `gaussian`, $e^{-r^2/2a^2}$ | 10 | 0.0073 | -0.1133 | -0.1060 | 0.0647 |
+| `gaussian`, $e^{-r^2/2a^2}$ | 10 | 0.0075 | -0.1128 | -0.1053 | 0.0665 |
 
 ![width sweep, gaussian](output/radial_width_gaussian.gif)
 
@@ -215,31 +215,50 @@ $2/\sqrt\pi$) as a cross-check.
 $R^\ast=0$ in every row -- this is Result 2, and this table is the
 evidence for it.
 
-## The 2s state
+## The ns states, n=1..4
 
 The 1s width sweep is a variational search over a one-lobe family; the same
-idea applies to the exact 2s shape, rescaled as a whole by $a$
-($a=1$ reproduces the literal 2s state):
+idea generalizes to every s-state at once. The exact hydrogen ns ($l=0$)
+shape, rescaled as a whole by $a$ ($a=1$ reproduces the literal state),
+uses the associated Laguerre polynomial $L_{n-1}^1$:
 
-$$\psi(r;a)=\left(1-\frac{r}{2a}\right)e^{-r/2a}$$
+$$\psi(r;a)=e^{-x}L_{n-1}^1(2x), \quad x=\frac{r}{na}$$
 
 ```
 python animate_radial_energy_terms.py width --kind hydrogen2s -o output/radial_width_hydrogen2s.gif
+python animate_radial_energy_terms.py width --kind hydrogen3s -o output/radial_width_hydrogen3s.gif
+python animate_radial_energy_terms.py width --kind hydrogen4s -o output/radial_width_hydrogen4s.gif
 ```
 
-![width sweep, hydrogen2s](output/radial_width_hydrogen2s.gif)
+| $n$ | $a^\ast$ | $E^\ast$ | exact $-1/(2n^2)$ | ratio | nodes |
+|---|---|---|---|---|---|
+| 1 | 1.000 | -0.5000 | -0.5000 | 0.5000 | 0 |
+| 2 | 1.000 | -0.1250 | -0.1250 | 0.5000 | 1 |
+| 3 | 0.997 | -0.0556 | -0.0556 | 0.5000 | 2 |
+| 4 | 0.998 | -0.0312 | -0.0312 | 0.5000 | 3 |
 
-Sweeping $a$ finds the minimum at $a=1.0$, $E=-0.125$ Hartree -- exactly
-$-1/8=-1/(2\cdot2^2)$, the textbook 2s energy, with virial ratio $0.500$
-again. Note this only works because $a$ rescales the *entire* shape (node
-included) together, keeping it exactly the 2s eigenfunction's form at every
-point in the sweep. An unconstrained joint search over decay length and
-node position independently does *not* find this point -- it runs away
-toward $r_0\to\infty$, degenerating back into the 1s shape ($E\to-0.5$).
-That's expected: excited states are stationary points of $\langle
-H\rangle$, not minima, unless the search is constrained to stay orthogonal
-to every lower state (here, implicitly, by keeping the family's shape
+![width sweep, hydrogen2s](output/radial_width_hydrogen2s.gif)
+![width sweep, hydrogen3s](output/radial_width_hydrogen3s.gif)
+![width sweep, hydrogen4s](output/radial_width_hydrogen4s.gif)
+
+Every row: minimum at $a=1$, exact energy, exact virial ratio, correct node
+count ($n-1$). This only works because $a$ rescales the *entire* shape
+(nodes included) together, keeping it exactly that eigenfunction's form at
+every point in the sweep. An unconstrained joint search over decay length
+and node positions independently does *not* find these points -- it runs
+away toward the node(s) pushed to infinity, degenerating back to the 1s
+shape ($E\to-0.5$). Expected: excited states are stationary points of
+$\langle H\rangle$, not minima, unless the search is constrained to stay
+orthogonal to every lower state (here, implicitly, by keeping the shape
 exactly right).
+
+One practical trap hit building this: higher-$n$ states are physically
+larger (extent grows roughly with $n$), so they need a larger grid than 1s
+does. Reusing the 1s grid ($r_{\max}=25$) for `hydrogen4s` silently
+truncated the tail, corrupting the normalization -- energy off by ~10% and
+the virial ratio wrong (0.62 instead of 0.5). `WIDTH_GRID` in
+`animate_radial_energy_terms.py` now sizes $r_{\max}$ and grid resolution
+per state ($r_{\max}=25/80/90/110$ for $n=1/2/3/4$).
 
 ## Why does $\psi$ peak at $r=0$ at all?
 
