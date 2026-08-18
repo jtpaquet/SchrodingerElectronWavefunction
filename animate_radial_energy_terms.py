@@ -36,11 +36,9 @@ per-frame rescaling) so only the curves/points move, not the frame:
   2. <T> and total energy E = <T> + <V> vs. the swept variable, log-x in
      width mode so the 1/a^2 blow-up and the flat tail are both visible;
      symlog y-axis so the minimum (a small dip near zero) stays visible
-     next to the much larger blow-up. A second vertical marker (besides
-     the energy minimum) shows where <T>=|<V>|, i.e. E=0 -- also noted in
-     the title -- the boundary between this trial family being net bound
-     or net unbound, a different and less fundamental landmark than the
-     energy minimum (see README).
+     next to the much larger blow-up. A dotted vertical line and a
+     dash-dot horizontal line cross exactly at the energy minimum, whose
+     value and location are also given in the title.
   3. A bar chart comparing <T> and |<V>|, log-scale y-axis (fixed for
      the whole run) since the two span orders of magnitude in width
      mode -- a fixed linear scale would make most frames unreadable.
@@ -87,16 +85,6 @@ COLOR_T = "#2a78d6"   # slot 1, blue
 COLOR_V = "#eb6834"   # slot 2, orange
 COLOR_P = "#1baf7a"   # slot 3, aqua -- radial probability density P(r)
 COLOR_E = "#e34948"   # slot 8, red
-
-
-def find_zero_crossing(x, y):
-    """First x where y crosses zero (linear interpolation between the
-    bracketing samples), or None if y never changes sign."""
-    sign_changes = np.where(np.diff(np.sign(y)) != 0)[0]
-    if len(sign_changes) == 0:
-        return None
-    i = sign_changes[0]
-    return x[i] + (0 - y[i]) * (x[i + 1] - x[i]) / (y[i + 1] - y[i])
 
 def kind_type(kind):
     """argparse type= validator for --kind: gaussian, quartic, or any
@@ -198,14 +186,12 @@ def run_width_mode(args, r):
         return psi, T, Vexp
 
     title = f"ψ(r;a) = {kind_formula(args.kind)}, l=0, centered on the nucleus  --  sweeping width a"
-    a_crossing = find_zero_crossing(sweep_bg, E_bg)
-    if a_crossing is not None:
-        title += f"   |   ⟨T⟩=|⟨V⟩| (E=0) at a≈{a_crossing:.3f}"
+    title += f"   |   E_min = {E_bg.min():.4f} at a≈{a_star:.3f}"
     xlabel = "width parameter a"
     window = width_grid_for_kind(args.kind)["window"]
     return dict(
         sweep_values=a_values, sweep_bg=sweep_bg, T_bg=T_bg, V_bg=V_bg, E_bg=E_bg, star=a_star,
-        crossing=a_crossing, frame_state=frame_state, title=title, xlabel=xlabel,
+        frame_state=frame_state, title=title, xlabel=xlabel,
         log_x=True, psi_window=window, cloud_window=window,
     )
 
@@ -229,13 +215,11 @@ def run_shell_mode(args, r):
         f"ψ(r;r0) = {kind_formula(args.kind)}, l=0, fixed thickness a={a_fixed:.2f}"
         "  --  sweeping shell radius r0"
     )
-    r0_crossing = find_zero_crossing(sweep_bg, E_bg)
-    if r0_crossing is not None:
-        title += f"   |   ⟨T⟩=|⟨V⟩| (E=0) at r0≈{r0_crossing:.3f}"
+    title += f"   |   E_min = {E_bg.min():.4f} at r0≈{r0_star:.3f}"
     xlabel = "shell radius r0"
     return dict(
         sweep_values=r0_values, sweep_bg=sweep_bg, T_bg=T_bg, V_bg=V_bg, E_bg=E_bg, star=r0_star,
-        crossing=r0_crossing, frame_state=frame_state, title=title, xlabel=xlabel,
+        frame_state=frame_state, title=title, xlabel=xlabel,
         log_x=False, psi_window=r0_max + 3 * a_fixed, cloud_window=r0_max + 4 * a_fixed,
     )
 
@@ -268,7 +252,6 @@ def main():
     run = (run_width_mode if args.mode == "width" else run_shell_mode)(args, r)
     sweep_values, sweep_bg = run["sweep_values"], run["sweep_bg"]
     T_bg, V_bg, E_bg, star = run["T_bg"], run["V_bg"], run["E_bg"], run["star"]
-    crossing = run["crossing"]
     frame_state, title, xlabel = run["frame_state"], run["title"], run["xlabel"]
 
     fig = plt.figure(figsize=(13, 10.5))
@@ -323,8 +306,7 @@ def main():
     ax_energy.set_title("2. Kinetic term & total energy", color=INK_PRIMARY, fontsize=11)
     ax_energy.axhline(0, color=BASELINE, linewidth=1)
     ax_energy.axvline(star, color=INK_MUTED, linewidth=1, linestyle=":")
-    if crossing is not None:
-        ax_energy.axvline(crossing, color=COLOR_P, linewidth=1, linestyle="-.")
+    ax_energy.axhline(E_bg.min(), color=COLOR_E, linewidth=1, linestyle="-.", alpha=0.6)
     ax_energy.plot(sweep_bg, E_bg, color=COLOR_E, linewidth=2, label="E = ⟨T⟩+⟨V⟩")
     ax_energy.plot(sweep_bg, T_bg, color=COLOR_T, linewidth=2, label="⟨T⟩")
     ax_energy.legend(loc="upper center", frameon=False, fontsize=9, labelcolor=INK_SECONDARY)

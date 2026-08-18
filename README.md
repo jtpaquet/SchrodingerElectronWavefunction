@@ -48,10 +48,9 @@ ground state to 4 decimal places, because this trial family, at that width,
 *Panel 1: $\psi(r)$ (blue) peaks at the nucleus; $P(r)$ (green) peaks at
 $a_0=1$ -- the two notions of "where the electron is." Panel 2: symlog
 y-axis so the minimum stays visible next to the $1/a^2$ blow-up; the
-dotted line marks the energy minimum ($a=1$), the dash-dot line marks
-$\langle T\rangle=\lvert\langle V\rangle\rvert$ ($a\approx0.5$, see "What
-does $\langle T\rangle=\langle V\rangle$ mean?" below). Panel 4: a compact
-ball at small $a$, spreading out as $a$ grows.*
+dotted vertical line and dash-dot horizontal line cross exactly at the
+energy minimum ($E=-0.5$ at $a=1$). Panel 4: a compact ball at small $a$,
+spreading out as $a$ grows.*
 
 ## Result 2: there is no preferred nonzero electron-nucleus separation
 
@@ -162,26 +161,28 @@ makes that gap visible directly.
 
 ## What does $\langle T\rangle=\lvert\langle V\rangle\rvert$ mean?
 
-Panel 2 of every width-sweep figure marks a second point besides the
-energy minimum: where $\langle T\rangle=\lvert\langle V\rangle\rvert$.
-Since $E=\langle T\rangle+\langle V\rangle=\langle T\rangle-\lvert\langle
-V\rangle\rvert$, that's just a restatement of $E=0$ -- an identity, true
-for *any* shape or potential, not a new calculation. For `hydrogen1s` it
-falls at exactly $a=0.5$ (half the ground-state width); for `gaussian`,
-$a\approx0.665$.
+Every width-sweep figure's panel 2 highlights only the energy minimum now
+(the plots used to also mark where $\langle T\rangle=\lvert\langle
+V\rangle\rvert$; that's been dropped in favor of the minimum, which is
+the more relevant landmark -- see below). Since
+$E=\langle T\rangle+\langle V\rangle=\langle T\rangle-\lvert\langle
+V\rangle\rvert$, $\langle T\rangle=\lvert\langle V\rangle\rvert$ is just a
+restatement of $E=0$ -- an identity, true for *any* shape or potential,
+not a new calculation. For `hydrogen1s` it falls at exactly $a=0.5$ (half
+the ground-state width); for `gaussian`, $a\approx0.665$.
 
-**Is it relevant, compared to the energy minimum?** Less so. The energy
-minimum *is* the answer to the physics question this whole project asks --
-it's the actual ground state (or, for the `ns` shapes, the actual excited
-state) when the trial family is right. $E=0$ is a much narrower fact: it's
-the width below which *this one-parameter family, with no freedom to
-change shape*, stops being competitive with a free (unbound) particle.
-Below $a=0.5$, `hydrogen1s` at that width has higher energy than an
-electron infinitely far away at rest -- confinement has gotten expensive
-enough to outweigh the binding. It's a real, easy-to-read threshold, and
-worth having on the plot, but it answers "how far can I over-confine this
-shape before it's not worth it," not "what does the atom actually look
-like" -- that's the minimum's job.
+**Why isn't it on the plot?** The energy minimum *is* the answer to the
+physics question this whole project asks -- it's the actual ground state
+(or, for the `ns` shapes, the actual excited state) when the trial family
+is right. $E=0$ is a much narrower fact: it's the width below which *this
+one-parameter family, with no freedom to change shape*, stops being
+competitive with a free (unbound) particle. Below $a=0.5$, `hydrogen1s`
+at that width has higher energy than an electron infinitely far away at
+rest -- confinement has gotten expensive enough to outweigh the binding.
+It's a real, easy-to-read threshold, but it answers "how far can I
+over-confine this shape before it's not worth it," not "what does the
+atom actually look like" -- that's the minimum's job, so the minimum is
+what stays on the plot.
 
 ## Shell sweep: a real effect, initially explained wrong
 
