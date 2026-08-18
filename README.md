@@ -16,6 +16,15 @@ $$1 = 4\pi\int_0^\infty \psi^2 r^2 dr \qquad \langle T\rangle = 2\pi\int_0^\inft
 integrable at $r=0$ -- no soft-core regularization needed anywhere in this
 project.
 
+That same $r^2$ weight is also why $\psi(r)$ itself and the radial
+probability density $P(r)=4\pi r^2\psi(r)^2$ -- the two things people mean
+by "where the electron is" -- peak in different places. $\psi(r)$, the
+wavefunction amplitude, is largest exactly at the nucleus for every s-state
+here; $P(r)$, the probability of actually detecting the electron in a thin
+shell at radius $r$, is zero at $r=0$ (nothing has room at exactly zero
+radius) and peaks further out. Every wavefunction plot below shows both,
+side by side, for exactly this reason.
+
 This README has two parts: this section is self-contained and covers the
 two headline results; **[the lab notebook](#lab-notebook)** below has
 everything else -- every model tried, every proof, every table.
@@ -36,6 +45,14 @@ ground state to 4 decimal places, because this trial family, at that width,
 
 ![width sweep, hydrogen1s](output/radial_width_hydrogen1s.gif)
 
+*Panel 1: $\psi(r)$ (blue) peaks at the nucleus; $P(r)$ (green) peaks at
+$a_0=1$ -- the two notions of "where the electron is." Panel 2: symlog
+y-axis so the minimum stays visible next to the $1/a^2$ blow-up; the
+dotted line marks the energy minimum ($a=1$), the dash-dot line marks
+$\langle T\rangle=\lvert\langle V\rangle\rvert$ ($a\approx0.5$, see "What
+does $\langle T\rangle=\langle V\rangle$ mean?" below). Panel 4: a compact
+ball at small $a$, spreading out as $a$ grows.*
+
 ## Result 2: there is no preferred nonzero electron-nucleus separation
 
 A natural question: does a localized electron prefer to sit some distance
@@ -45,7 +62,7 @@ point in space), not a radial-coordinate trick -- see the lab notebook for
 why several radial attempts gave misleading answers. Done properly, an
 isotropic Gaussian of width $a$ displaced to $(0,0,R)$ has a closed form:
 
-$$\langle T\rangle(a) = \frac{3}{4a^2} \qquad \langle V\rangle(R,a) = -\frac{\operatorname{erf}(R/a)}{R}$$
+$$\langle T\rangle(a) = \frac{3}{4a^2} \qquad \langle V\rangle(R,a) = -\frac{\mathrm{erf}(R/a)}{R}$$
 
 $\langle T\rangle$ is *exactly* constant in $R$ (translation invariance of
 kinetic energy for a rigid object in free space), which is what makes
@@ -54,6 +71,13 @@ $0.05$: $E(R)$ increases monotonically from $R=0$ in every case. No
 exceptions, no interior minimum.
 
 ![wavepacket capture, a=1.0](output/wavepacket_capture_a1.0.gif)
+
+*$a=1.0$: panel 2's $\langle T\rangle$ line is perfectly flat -- not
+approximately, exactly, for every $R$ -- while $E(R)$ climbs the whole way
+from $R=0$. Panel 4 stays one solid ball at every frame, simply
+translating; it never hollows into a shell the way the radial shell model
+did, because nothing here ties the cloud's shape to its distance from the
+nucleus.*
 
 **Interpretation:** a single electron falling into a single proton's
 Coulomb well has nothing to balance against except its own kinetic energy,
@@ -125,11 +149,39 @@ T\rangle$'s integration by parts vanishes on its own.
 
 ![width sweep, gaussian](output/radial_width_gaussian.gif)
 
+*Same panels, `gaussian` shape. $P(r)$ still peaks away from the origin
+even though this isn't the exact eigenstate; the energy-minimum dotted
+line sits at $a=1.33$, slightly wider than `hydrogen1s`'s $a=1$, since a
+Gaussian needs more spread to make up for being the wrong shape.*
+
 `gaussian`'s virial ratio also lands on $0.5$ (true for *any* shape under
 pure dilation -- a scaling argument, not specific to the right shape), but
 its energy floor ($-0.4244$) sits measurably above the true $-0.5$: a
 Gaussian is the wrong shape, and $\langle H\rangle\geq E_{\text{ground}}$
 makes that gap visible directly.
+
+## What does $\langle T\rangle=\lvert\langle V\rangle\rvert$ mean?
+
+Panel 2 of every width-sweep figure marks a second point besides the
+energy minimum: where $\langle T\rangle=\lvert\langle V\rangle\rvert$.
+Since $E=\langle T\rangle+\langle V\rangle=\langle T\rangle-\lvert\langle
+V\rangle\rvert$, that's just a restatement of $E=0$ -- an identity, true
+for *any* shape or potential, not a new calculation. For `hydrogen1s` it
+falls at exactly $a=0.5$ (half the ground-state width); for `gaussian`,
+$a\approx0.665$.
+
+**Is it relevant, compared to the energy minimum?** Less so. The energy
+minimum *is* the answer to the physics question this whole project asks --
+it's the actual ground state (or, for the `ns` shapes, the actual excited
+state) when the trial family is right. $E=0$ is a much narrower fact: it's
+the width below which *this one-parameter family, with no freedom to
+change shape*, stops being competitive with a free (unbound) particle.
+Below $a=0.5$, `hydrogen1s` at that width has higher energy than an
+electron infinitely far away at rest -- confinement has gotten expensive
+enough to outweigh the binding. It's a real, easy-to-read threshold, and
+worth having on the plot, but it answers "how far can I over-confine this
+shape before it's not worth it," not "what does the atom actually look
+like" -- that's the minimum's job.
 
 ## Shell sweep: a real effect, initially explained wrong
 
@@ -148,7 +200,19 @@ shell.
 | 0.05 | 0.50 | +98.88 | +277.32 | no |
 
 ![shell sweep, a=0.2](output/radial_shell_gaussian.gif)
+
+*$a=0.2$: panel 1 shows $\psi(r)$ and $P(r)$ coinciding in shape here
+(both just the shell profile -- $l=0$ still, so $P(r)$ is the same $r^2$
+reweighting as everywhere else in this project, it just looks less
+dramatic on an already-hollow shell). Panel 4 is the clearest view: a
+solid ball at $r_0=0$ opening into a hollow shell as $r_0$ grows.*
+
 ![shell sweep, a=0.05](output/radial_shell_gaussian_a0.05.gif)
+
+*$a=0.05$: same mechanism, more extreme -- note the panel 2 symlog axis
+now spans nearly 3 decades, and the minimum (still a real dip, around
+$r_0\approx0.5$) would be invisible on a linear scale sized to fit
+$E(r_0=0)\approx277$.*
 
 **First explanation (wrong):** I initially described this as the shell
 getting "clipped" by the $r\geq0$ boundary. That's wrong -- $r$ is a radial
@@ -195,7 +259,7 @@ translation-invariant on general grounds. $\langle V\rangle(R,a)$ is the
 electrostatic energy between a point charge and a Gaussian charge cloud of
 width $a$ a distance $R$ away -- a standard closed form (the same integral
 that appears in Ewald summation):
-$\langle V\rangle=-\operatorname{erf}(R/a)/R\to-2/(a\sqrt\pi)$ as $R\to0$.
+$\langle V\rangle=-\mathrm{erf}(R/a)/R\to-2/(a\sqrt\pi)$ as $R\to0$.
 Verified against the $r_0=0$ shell-sweep value at $a=1$ ($-1.1284$, matching
 $2/\sqrt\pi$) as a cross-check.
 
@@ -211,6 +275,12 @@ $2/\sqrt\pi$) as a cross-check.
 | 0.05 | 300.0 | +277.4 | 0 |
 
 ![wavepacket capture, a=0.3](output/wavepacket_capture_a0.3.gif)
+
+*$a=0.3$: a much more localized packet, same result -- $\langle T\rangle$
+flat, $E(R)$ monotonic from $R=0$. This isn't a radial plot, so there's no
+$P(r)$ panel here; panel 1 is a literal 1D slice through the packet along
+its axis of motion, free to be centered at any real $z$ (no $r\geq0$
+restriction, since $z$ is an ordinary Cartesian coordinate, not a radius).*
 
 $R^\ast=0$ in every row -- this is Result 2, and this table is the
 evidence for it.
@@ -239,8 +309,21 @@ python animate_radial_energy_terms.py width --kind hydrogen10s -o output/radial_
 | 10 | 1.002 | -0.0050 | -0.0050 | 0.5000 | 9 |
 
 ![width sweep, hydrogen2s](output/radial_width_hydrogen2s.gif)
+
+*$n=2$: panel 1 shows $\psi(r)$ crossing zero once (its single node) while
+$P(r)$, always $\geq0$, shows two humps separated by the node instead --
+another case where the two curves genuinely look different, not just
+rescaled copies of each other.*
+
 ![width sweep, hydrogen4s](output/radial_width_hydrogen4s.gif)
+
+*$n=4$: 3 nodes in $\psi(r)$, 4 humps in $P(r)$. Note panel 1's much wider
+x-axis ($r$ up to 70) -- higher-$n$ states are physically larger.*
+
 ![width sweep, hydrogen10s](output/radial_width_hydrogen10s.gif)
+
+*$n=10$: 9 nodes, extent out past $r=250$. Same exact-energy, exact-virial-
+ratio result as every other row in the table -- the pattern doesn't break.*
 
 Every row: minimum at $a=1$, exact energy, exact virial ratio, correct node
 count ($n-1$). This only works because $a$ rescales the *entire* shape
@@ -274,6 +357,10 @@ python animate_radial_energy_terms.py width --kind quartic -o output/radial_widt
 ```
 
 ![width sweep, quartic](output/radial_width_quartic.gif)
+
+*Panel 1 makes the shape obvious: $\psi(r)$ (and hence $P(r)$) rises from
+zero at the origin, peaks around $r=4a$, then decays -- no amplitude left
+near the nucleus at all, unlike every `hydrogenNs` shape above.*
 
 Minimum at $a^\ast=0.554$, $E^\ast=-0.180$ Hartree, virial ratio $0.500$
 (that part always holds under pure dilation). Compare to `hydrogen1s`'s
