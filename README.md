@@ -32,6 +32,7 @@ everything else -- every model tried, every proof, every table.
 ```
 python animate_radial_energy_terms.py width --kind hydrogen1s -o output/radial_width_hydrogen1s.gif
 python animate_wavepacket_capture.py --fixed-width 1.0 -o output/wavepacket_capture_a1.0.gif
+python animate_radial_time_evolution.py --width 2.0 -o output/radial_time_evolution_wide.gif
 ```
 
 ## Result 1: the width sweep finds the exact hydrogen ground state
@@ -88,6 +89,62 @@ and a bare proton have neither. The intuition "the electron doesn't want to
 sit exactly on the proton" is correct, but the resolution is the ground
 state's *spread* ($a_0=1$), not an *offset* -- two different geometric
 ideas.
+
+## Result 3: real time evolution doesn't relax to the ground state
+
+Every sweep above is a sequence of independent *static* variational
+calculations. A natural next question: start from a wavepacket that
+*isn't* the ground state (too wide, or off-center) and actually evolve it
+under the time-dependent Schrödinger equation -- does it relax into the 1s
+orbital, the way a classical damped system settles into its minimum?
+
+No. Time evolution under $i\partial_t\psi=H\psi$ is unitary, which forces
+two conservation laws: $\langle H\rangle$ is constant, and, expanding the
+initial state in the exact eigenbasis $\psi(r,0)=\sum_n c_n\psi_n(r)$, each
+term merely picks up a phase, $c_n\to c_n e^{-iE_nt}$ -- so $|c_n|^2$, the
+population in eigenstate $n$, is *exactly* constant for all time. There is
+no dissipation channel for a closed quantum system to relax through.
+
+```
+python animate_radial_time_evolution.py --width 2.0 -o output/radial_time_evolution_wide.gif
+python animate_radial_time_evolution.py --width 0.6 --r0 4.0 -o output/radial_time_evolution_offcenter.gif
+```
+
+![time evolution, wide gaussian](output/radial_time_evolution_wide.gif)
+
+*A Gaussian twice the ground-state width, centered on the nucleus. Panel 1:
+$P(r,t)$ visibly breathes. Panel 2: $\langle T\rangle$ and $\langle
+V\rangle$ slosh back and forth by a factor of 2, but $E=\langle
+T\rangle+\langle V\rangle$ (red) is a perfectly flat line. Panel 3: the
+population in each exact eigenstate ($n=1..4$) never moves off its
+starting value -- $82\%$ ground state at $t=0$ is still $82\%$ ground state
+at $t=100$.*
+
+![time evolution, off-center](output/radial_time_evolution_offcenter.gif)
+
+*A narrow shell started at $r_0=4$. This state's total energy is positive
+(mostly continuum/unbound character), so it disperses outward over time
+rather than settling anywhere -- but $E$ and every $|c_n|^2$ are exactly as
+constant as in the wide case.*
+
+**Numerics:** the standard $l=0$ substitution $u(r,t)=\sqrt{4\pi}\,r\,\psi(r,t)$
+turns the 3D equation into a plain 1D Schrödinger equation, $i\partial_t
+u=-\tfrac12u''+V(r)u$, with Dirichlet boundaries $u(0)=0$ (forced by the
+substitution itself, not imposed) and a hard wall at $r_{\max}$; conveniently,
+$|u(r,t)|^2$ *is* $P(r,t)$ with no extra factors. Crank-Nicolson
+time-stepping is used because it's an exact unitary (Cayley) transform of a
+Hermitian operator at any $\Delta t$ -- norm is conserved to machine
+precision every run, and the (tiny, $\sim10^{-4}$ over $t=100$) drift in
+$\langle H\rangle$ and $|c_n|^2$ is purely spatial discretization error, not
+a physical effect.
+
+**What would actually converge to the ground state:** replacing $t\to
+-i\tau$ (imaginary-time propagation, $e^{-H\tau}$ instead of $e^{-iHt}$,
+followed by renormalizing at each step) is not physical evolution -- it's a
+standard numerical trick in which every excited-state component decays as
+$e^{-(E_n-E_0)\tau}$, faster the higher $E_n$ is, so only the ground state
+survives. That would reproduce the width sweep's answer by direct
+propagation instead of parameter scanning. Not implemented here.
 
 ## Requirements
 
@@ -400,23 +457,26 @@ discomfort:
 
 ## What this project does and doesn't simulate
 
-Every sweep here is a sequence of independent, static variational
-calculations -- each frame recomputes $\langle T\rangle,\langle V\rangle$
-for one trial wavefunction, it is not a time-dependent process. "The
-electron falls in and speeds up" is a useful classical intuition, but nothing
-here evolves in time. Two ways to make that comparison rigorous, not just
-suggestive:
+Every *sweep* (Results 1 and 2, and everything in the lab notebook above
+this section) is a sequence of independent, static variational calculations
+-- each frame recomputes $\langle T\rangle,\langle V\rangle$ for one trial
+wavefunction; nothing evolves in time. "The electron falls in and speeds
+up" is a useful classical intuition for those, but it isn't what the sweeps
+show.
 
-- **Purely classical:** solve Newton's law for a point charge in a $-1/r$
- potential. No quantum discreteness at all; a clean, continuous
- reference curve, but a different model, not a limit of this one.
-- **Real quantum dynamics:** build a wavepacket as a superposition of many
- energy eigenstates and time-evolve it under the full (not
- time-independent) Schrödinger equation. At high principal quantum number
- $n$, such wavepackets *do* trace out near-classical orbits for a while
- (the correspondence principle) before dephasing, since hydrogen's level
- spacing isn't uniform -- a genuinely different and larger calculation
- than anything here (propagating a wavefunction in time, not extremizing
- a static energy functional).
+**Real quantum dynamics** (Result 3, `animate_radial_time_evolution.py`)
+*is* now built: a wavepacket time-evolved under the full time-dependent
+Schrödinger equation, restricted to $l=0$. The headline finding there is
+almost the opposite of the classical intuition: a closed quantum system
+under unitary evolution doesn't relax to the ground state at all -- energy
+and every eigenstate population are exactly conserved (see Result 3). At
+high principal quantum number $n$ (not attempted here -- this project's
+`hydrogenNs` states only go up to whatever grid size is practical, and the
+interesting wavepackets there are localized superpositions across a wide
+$n$ range), such wavepackets are known to trace out near-classical orbits
+for a while (the correspondence principle) before dephasing, since
+hydrogen's level spacing isn't uniform.
 
-Neither is built in this repo yet.
+**Purely classical** (Newton's law for a point charge in a $-1/r$
+potential) is a different model, not a limit of this one, and still isn't
+built here.
